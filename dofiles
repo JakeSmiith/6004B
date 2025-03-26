@@ -1,0 +1,715 @@
+// Week 1, part 1
+
+clear all
+
+/// change directory and then import data
+
+import excel "/Users/alasdairbrown/Downloads/ECO-6004B Workshop 01 - Data.xlsx", sheet("Data") firstrow
+
+/// create a date variable for later plots
+
+generate date = _n
+
+/// generate return data
+
+gen Brent_return = ln(Brent/Brent[_n-1])
+
+gen Gold_return = ln(Gold/Gold[_n-1])
+
+gen IBOVESPA_return = ln(IBOVESPA/IBOVESPA[_n-1])
+
+gen SP500_return = ln(SP500/SP500[_n-1])
+
+gen Euronext100_return = ln(Euronext100/Euronext100[_n-1])
+
+/// Means, SDs 
+
+summarize Brent_return Gold_return IBOVESPA_return SP500_return Euronext100_return, detail
+
+/// Means, SDs + extra statistics (kurtosis, skewness, percentiles)
+
+summarize Brent_return Gold_return IBOVESPA_return SP500_return Euronext100_return, detail
+
+/// Correlation matrix
+
+correlate Brent_return Gold_return IBOVESPA_return SP500_return Euronext100_return
+
+/// plot return data to look for volatility clustering (may choose to save figures)
+
+twoway (line Brent_return date)
+
+twoway (line Gold_return date)
+
+twoway (line IBOVESPA_return date)
+
+twoway (line SP500_return date)
+
+twoway (line Euronext100_return date)
+
+twoway (line Brent_return date) (line Gold_return date) (line IBOVESPA_return date) (line SP500_return date) (line Euronext100_return date)
+
+
+/// Histograms to look at normality of return distrubutions
+
+histogram Brent_return, fraction
+
+histogram Gold_return, fraction
+
+histogram IBOVESPA_return, fraction
+
+histogram SP500_return, fraction
+
+histogram Euronext_return, fraction
+
+
+//Week 1, part 2
+
+clear all // To clear any previous command and close any previously opened data file.
+
+import excel "/Users/alasdairbrown/Downloads/ECO-6004B Workshop 01 - Solutions.xlsx", sheet("Data to import on Stata") firstrow // To import data from the Excel file. Please modify according to your directory. 
+
+g Brent_lag = Brent[_n-1] // To generate the series of lag returns of Brent. 
+g Gold_lag = Gold[_n-1] // To generate the series of lag returns of Gold. 
+g IBOVESPA_lag = IBOVESPA[_n-1] // To generate the series of lag returns of IBOVESPA. 
+g SP500_lag = SP500[_n-1] // To generate the series of lag returns of S&P500. 
+g Euronext100_lag = Euronext100[_n-1] // To generate the series of lag returns of EURONEXT100. 
+
+g time = _n // I need to generate a variable to make later understand Stata that the time series is continuous.
+
+//tsset Date // If I see here the time series with the variable "Data", Stata would notice some gaps, as we have working weeks data. This would not affect the regression' estimations, but would bias the Durbin-Watson test.
+
+tsset time // The time dimension moves along the variable "time", which has no gaps.
+
+
+
+reg Brent Brent_lag // Regression with intercept 
+predict Brent_hat , xb // To compute y_hat 
+predict Brent_res , res // To compute the residual series 
+estat dwatson // Command to compute the Durbin-Watson statistic. 
+// dwstat // Alternative command to compute the Durbin-Watson statistic. 
+
+reg Gold Gold_lag // if you had the option robust, standard errors will be correct for heteroskedasticity: reg Gold Gold_lag, r 
+predict Gold_hat , xb 
+predict Gold_res , res 
+estat dwatson 
+
+reg IBOVESPA IBOVESPA_lag 
+predict IBOVESPA_hat , xb 
+predict IBOVESPA_res , res 
+estat dwatson 
+
+reg SP500 SP500_lag 
+predict SP500_hat , xb 
+predict SP500_res , res 
+estat dwatson 
+
+reg Euronext100 Euronext100_lag 
+predict Euronext100_hat , xb 
+predict Euronext100_res , res 
+estat dwatson 
+
+// ssc install jb // type this command only the first time you wish to run the Jarque-Bera test
+
+jb Brent 
+jb Gold 
+jb IBOVESPA 
+jb SP500 
+jb Euronext100 
+
+//Week 2
+// Workshop 02 Do File
+
+clear all
+
+/// change directory and then import data
+
+import excel "/Users/alasdairbrown/Downloads/ECO-6004B Workshop 02 - Data_for_Stata_Import.xlsx", firstrow
+
+/// calculate returns for each asset
+
+gen CAC40_return = ln(CAC40/CAC40[_n-1])
+
+gen SP500_return = ln(SP500/SP500[_n-1])
+
+gen IPC_return = ln(IPC/IPC[_n-1])
+
+gen Nikkei225_return = ln(Nikkei225/Nikkei225[_n-1])
+
+///. Portfolio value and gain/losses (in millions)
+
+gen Portfolio_value = 2*(1+CAC40_return)+4*(1+SP500_return)+1*(1+IPC_return)+3*(1+Nikkei225_return)
+
+gen Gain_loss = Portfolio - 10
+
+sort Gain_loss /// 6th worst loss is 99th percentile VaR ~ -$234,700
+
+
+//// Repeat analysis with weighting scheme
+
+/// create weights
+
+sort Day
+
+gen day = Day-1
+
+gen lambda = 0.99
+
+gen weight = (lambda^(481-day)*(1-lambda))/(1-lambda^(481)) if Day>1
+
+/// sort by losses and calculate cumulative weights
+
+sort Gain_loss
+
+gen cumulative_weight = sum(weight) /// the 99% VaR with this weighting scheme is the first loss with a cumulative weight over 0.01.  This figure is ~ -$158,433
+
+
+//Week 3
+clear all
+
+/// Change directory & import data
+
+import excel "/Users/alasdairbrown/Downloads/ECO-6004B Workshop 03 - Data_for_Stata_import.xlsx", sheet("Sheet1") firstrow
+
+/// visualise price data
+
+twoway (scatter NaturalGasFuturesContract1 Date)
+
+twoway (scatter NaturalGasFuturesContract2 Date)
+
+twoway (scatter NaturalGasFuturesContract3 Date)
+
+twoway (scatter NaturalGasFuturesContract4 Date)
+
+/// extract year from date variable
+
+gen year = year(Date)
+
+/// gen indicator variable if futures in contango
+
+gen contango = (NaturalGasFuturesContract4>NaturalGasFuturesContract1) if NaturalGasFuturesContract4!=. & NaturalGasFuturesContract1!=.
+
+gen premium = (NaturalGasFuturesContract4-NaturalGasFuturesContract1) if NaturalGasFuturesContract4!=. & NaturalGasFuturesContract1!=.
+
+summarize contango premium
+
+/// calculate averages for each year & plot
+
+egen mean_contango = mean(contango), by(year)
+
+twoway(scatter mean_contango year)
+
+egen mean_premium = mean(premium), by(year)
+
+twoway(scatter mean_premium year)
+
+/// drop duplicates and create a smooth plot
+
+duplicates drop year, force
+
+lowess mean_contango year
+
+lowess mean_premium year
+
+// Week 4
+
+clear all
+
+/// Import data (amend directory if necessary)
+
+import excel "/Users/alasdairbrown/Downloads/ECO-6004B Workshop 04 - Data.xlsx", sheet("ECO-6004B Workshop 04 - Data") firstrow
+
+/// reorder dates 
+
+gsort -A
+
+/// calculate returns
+
+gen return_SP500 = ln(SP_500_Price/SP_500_Price[_n-1])
+
+gen return_silver = ln(Silver_Price/Silver_Price[_n-1])
+
+/// plot return data
+
+hist return_silver, percent
+
+/// estimate market betas
+
+reg return_silver return_SP500
+
+
+/// estimate rolling window regressions
+
+/// install package if not already done so
+
+//// ssc install rangestat 
+
+rangestat (reg) return_silver return_SP500, interval(A -59 0)
+
+
+/// plot beta and alpha estimates of rolling regressions
+
+twoway (line b_return_SP500 Date) if reg_nobs==60
+
+twoway (line b_cons Date) if reg_nobs==60
+
+
+/// construct and plot confidence intervals for alpha
+
+gen ci_lower = b_cons - 1.96 * se_cons
+
+gen ci_upper = b_cons + 1.96 * se_cons
+
+twoway (line b_cons Date if reg_nobs==60) (line ci_lower Date if reg_nobs==60) (line ci_upper Date if reg_nobs==60)
+
+
+//Week 5, part 1
+
+clear
+set obs 999 // Set the number of synthetic MBS deals
+
+* Step 1: Create a unique parent MBS ID for each deal (1 parent MBS per 3 rows)
+gen parent_mbs_id = ceil(_n / 3)
+
+* Step 2: Sort data by parent_mbs_id
+sort parent_mbs_id
+
+* Step 3: Assign tranche types (Junior, Mezzanine, Senior) within each parent_mbs_id
+gen tranche = ""
+by parent_mbs_id: replace tranche = "Junior" if _n == 1
+by parent_mbs_id: replace tranche = "Mezzanine" if _n == 2
+by parent_mbs_id: replace tranche = "Senior" if _n == 3
+
+* Step 4: Generate tranche sizes for each category
+gen tranche_size = .
+replace tranche_size = 0.4 if tranche == "Junior"
+replace tranche_size = 0.30 if tranche == "Mezzanine"
+replace tranche_size = 0.30 if tranche == "Senior"
+
+* Step 5: Randomize Coupon Rates
+* Higher coupon rates for Junior tranches, then Mezzanine and Senior
+gen coupon_rate = .
+replace coupon_rate = runiform(0.20, 0.45) if tranche == "Junior"  // Junior tranches 
+replace coupon_rate = runiform(0.05, 0.20) if tranche == "Mezzanine"  // Mezzanine tranches 
+replace coupon_rate = runiform(0.02, 0.04) if tranche == "Senior" // Senior tranches 
+
+* Step 6: Simulate MBS Losses at the MBS level (parent_mbs_id)
+set seed 12345
+gen mbs_loss_pct = rbeta(1, 5) // Simulating loss percentages at the MBS level (Beta distribution with shape parameters 1, 1). (1,1) is a uniform distribution
+
+* Step 7: Allocate MBS losses across tranches (Loss Absorption Hierarchy)
+bysort parent_mbs_id: gen total_mbs_loss = mbs_loss_pct[1] // Use the first row in each group to define the MBS loss
+
+drop mbs_loss_pct
+
+// Week 5, part 2
+
+
+clear
+set obs 999 // Set the number of synthetic MBS deals
+
+* Step 1: Create a unique parent MBS ID for each deal (1 parent MBS per 3 rows)
+gen parent_mbs_id = ceil(_n / 3)
+
+* Step 2: Sort data by parent_mbs_id
+sort parent_mbs_id
+
+* Step 3: Assign tranche types (Junior, Mezzanine, Senior) within each parent_mbs_id
+gen tranche = ""
+by parent_mbs_id: replace tranche = "Junior" if _n == 1
+by parent_mbs_id: replace tranche = "Mezzanine" if _n == 2
+by parent_mbs_id: replace tranche = "Senior" if _n == 3
+
+* Step 4: Generate tranche sizes for each category
+gen tranche_size = .
+replace tranche_size = 0.4 if tranche == "Junior"
+replace tranche_size = 0.30 if tranche == "Mezzanine"
+replace tranche_size = 0.30 if tranche == "Senior"
+
+* Step 5: Randomize Coupon Rates
+* Higher coupon rates for Junior tranches, then Mezzanine and Senior
+gen coupon_rate = .
+replace coupon_rate = runiform(0.20, 0.45) if tranche == "Junior"  // Junior tranches 
+replace coupon_rate = runiform(0.05, 0.20) if tranche == "Mezzanine"  // Mezzanine tranches 
+replace coupon_rate = runiform(0.02, 0.04) if tranche == "Senior" // Senior tranches 
+
+* Step 6: Simulate MBS Losses at the MBS level (parent_mbs_id)
+set seed 12345
+gen mbs_loss_pct = rbeta(1, 5) // Simulating loss percentages at the MBS level (Beta distribution with shape parameters 1, 1). (1,1) is a uniform distribution
+
+* Step 7: Allocate MBS losses across tranches (Loss Absorption Hierarchy)
+bysort parent_mbs_id: gen total_mbs_loss = mbs_loss_pct[1] // Use the first row in each group to define the MBS loss
+
+drop mbs_loss_pct
+
+* Step 8: Allocate losses in a sequential manner (Junior -> Mezzanine -> Senior)
+* Junior tranche absorbs up to its size (40%); if loss > size, remaining loss is passed to Mezzanine, then Senior
+gen junior_loss = min(total_mbs_loss, tranche_size[1]) // Junior absorbs up to its size (40%)
+gen remaining_loss = total_mbs_loss - junior_loss // Remaining loss after Junior absorbs
+
+gen mezzanine_loss = min(remaining_loss, tranche_size[2]) // Mezzanine absorbs up to its size (30%)
+gen remaining_loss_2 = remaining_loss - mezzanine_loss // Remaining loss after Mezzanine absorbs
+
+gen senior_loss = min(remaining_loss_2, tranche_size[3]) // Senior absorbs up to its size (30%)
+
+
+/// Plots aggregate MBS losses
+
+hist total_mbs_loss if tranche == "Junior", fraction
+
+
+/// Proportional Losses
+
+gen loss = -junior_loss/0.4
+
+replace loss = -mezzanine_loss/0.3 if tranche == "Mezzanine"
+
+replace loss = -senior_loss/0.3 if tranche == "Senior"
+
+
+/// Returns
+
+gen return = coupon_rate + loss
+
+by tranche, sort : summarize return, detail
+
+hist return if tranche == "Junior"
+
+hist return if tranche == "Mezzanine"
+
+hist return if tranche == "Senior"
+
+twoway (histogram return if tranche == "Junior", color(blue%30)) ///
+       (histogram return if tranche == "Mezzanine", color(red%30)) ///
+       (histogram return if tranche == "Senior", color(green%30)), ///
+       legend(label(1 "Junior") label(2 "Mezzanine") label(3 "Senior")) ///
+       title("Histogram of Returns by Tranche") ///
+       xtitle("Returns") ytitle("Frequency") 
+
+// Week 6
+clear all
+
+/// import data (amend directory as necessary)
+
+import excel "/Users/alasdairbrown/Downloads/Workshops/ECO-6004B Workshop 06 - Housing Data.xlsx", sheet("ECO-6004B Workshop 06 - Housing") firstrow
+
+/// gen log prices and plot
+
+gen ln_price = ln(price)
+
+hist price
+
+hist ln_price
+
+
+
+/// Location analysis
+
+/// First estimate a basic regression to get a basic idea of R^2s in this field
+
+reg ln_price bedrooms bathrooms parking, vce(robust)
+
+/// Check how many distinct values of area you have
+
+/// ssc install distinct (if needed)
+
+distinct area
+
+/// Now add fixed effects for area and compare R^2 to original regression
+
+reg ln_price bedrooms bathrooms parking i.area, vce(robust)
+
+
+
+/// Main road variable -- traffic access versus environmental concerns
+
+/// generate an indicator variable equalling 1 if near/on the main road
+
+gen main = regexm(mainroad, "yes")
+
+summarize main
+
+/// add variable to original regression
+
+reg ln_price bedrooms bathrooms parking main, vce(robust)
+
+/// how does the addition of location fixed effects affect the main coefficient estimate?
+
+reg ln_price bedrooms bathrooms parking main i.area, vce(robust)
+
+
+
+
+/////////// Model testing
+
+/// Introduce a new variable: ratio of bedrooms to bathrooms
+
+gen ratio = bedrooms/bathrooms
+
+* Step 1: Split the data into training and test sets
+set seed 1234  // Set a seed for reproducibility
+gen sample = runiform()  // Generate a random variable
+gen training = (sample < 0.7)  // Assign 70% of the data to the training set
+gen test = (sample >= 0.7)  // Assign 30% of the data to the test set
+
+* Step 2: Estimate the models on the training set
+* Model 1: reg ln_price bedrooms bathrooms, vce(robust)
+reg ln_price bedrooms bathrooms if training, vce(robust)
+predict yhat1 if test  // Generate predictions for Model 1 on the test set
+
+* Model 2: reg ln_price bedrooms bathrooms ratio, vce(robust)
+reg ln_price bedrooms bathrooms ratio if training, vce(robust)
+predict yhat2 if test  // Generate predictions for Model 2 on the test set
+
+* Step 3: Compare the predictions
+* Calculate prediction errors for each model
+gen error1 = ln_price - yhat1 if test
+gen error2 = ln_price - yhat2 if test
+
+* Calculate Mean Squared Error (MSE) for each model
+gen mse1 = error1^2 if test
+gen mse2 = error2^2 if test
+summarize mse1 mse2 if test
+
+// Week 7
+clear all
+
+/// Import data (amend directory as necessary)
+
+import delimited "/Users/alasdairbrown/Downloads/Workshops/ECO-6004B Workshop 07 - Data.csv", varnames(1) 
+
+/// Data cleaning.  Create numerical variables from string variables with % & organise date variable
+
+gen ca = real(subinstr(convertiblearbitrage, "%", "", .))  
+gen cta = real(subinstr(ctaglobal, "%", "", .))  
+gen ds = real(subinstr(distressedsecurities, "%", "", .))  
+gen em = real(subinstr(emergingmarkets, "%", "", .))  
+gen emn = real(subinstr(equitymarketneutral, "%", "", .))  
+gen ed = real(subinstr(eventdriven, "%", "", .))  
+gen fia = real(subinstr(fixedincomearbitrage, "%", "", .))  
+gen gm = real(subinstr(globalmacro, "%", "", .))  
+gen lse = real(subinstr(longshortequity, "%", "", .))  
+gen ma = real(subinstr(mergerarbitrage, "%", "", .))  
+gen rv = real(subinstr(relativevalue, "%", "", .))  
+gen ss = real(subinstr(shortselling, "%", "", .))  
+gen fof = real(subinstr(fundsoffunds, "%", "", .))  
+
+
+gen date_numeric = date(date, "DMY")
+format date_numeric %td
+
+gen date_number = _n
+
+
+
+/// Summarise data
+
+summarize
+
+correlate
+
+/// Plot return data
+
+twoway ///
+    (line ca date_numeric, lcolor(blue)) ///
+    (line cta date_numeric, lcolor(red)) ///
+    (line ds date_numeric, lcolor(green)) ///
+    (line em date_numeric, lcolor(orange)) ///
+    (line emn date_numeric, lcolor(purple)) ///
+    (line ed date_numeric, lcolor(cyan)) ///
+    (line fia date_numeric, lcolor(magenta)) ///
+    (line gm date_numeric, lcolor(brown)) ///
+    (line lse date_numeric, lcolor(lime)) ///
+    (line ma date_numeric, lcolor(pink)) ///
+    (line rv date_numeric, lcolor(teal)) ///
+    (line ss date_numeric, lcolor(gold)) ///
+    (line fof date_numeric, lcolor(navy)), ///
+    title("Combined Plot of Return Variables Over Time") ///
+    xtitle("Date") ytitle("Returns") ///
+    legend(label(1 "ca") label(2 "cta") label(3 "ds") label(4 "em") ///
+           label(5 "emn") label(6 "ed") label(7 "fia") label(8 "gm") ///
+           label(9 "lse") label(10 "ma") label(11 "rv") label(12 "ss") ///
+           label(13 "fof"))
+		   
+/// Create an average return variable (hedge fund market portfolio)
+egen hedge = rowmean(ca cta ds em emn ed fia gm lse ma rv ss fof)
+
+summarize hedge
+
+/// Regress the returns of each strategy on the hedge fund portfolio to see exposure to this risk
+
+/// ssc install outreg2
+
+/// Run regressions for each return variable on the variable "hedge"
+
+reg ca hedge
+outreg2 using "regression_results.xls", excel replace ctitle(ca)
+
+reg cta hedge
+outreg2 using "regression_results.xls", excel append ctitle(cta)
+
+reg ds hedge
+outreg2 using "regression_results.xls", excel append ctitle(ds)
+
+reg em hedge
+outreg2 using "regression_results.xls", excel append ctitle(em)
+
+reg emn hedge
+outreg2 using "regression_results.xls", excel append ctitle(emn)
+
+reg ed hedge
+outreg2 using "regression_results.xls", excel append ctitle(ed)
+
+reg fia hedge
+outreg2 using "regression_results.xls", excel append ctitle(fia)
+
+reg gm hedge
+outreg2 using "regression_results.xls", excel append ctitle(gm)
+
+reg lse hedge
+outreg2 using "regression_results.xls", excel append ctitle(lse)
+
+reg ma hedge
+outreg2 using "regression_results.xls", excel append ctitle(ma)
+
+reg rv hedge
+outreg2 using "regression_results.xls", excel append ctitle(rv)
+
+reg ss hedge
+outreg2 using "regression_results.xls", excel append ctitle(ss)
+
+reg fof hedge
+outreg2 using "regression_results.xls", excel append ctitle(fof)		   
+		   
+		   
+		   
+/// Test for momentum and reversal
+
+// Set the time variable (e.g., date_number)
+tsset date_number
+
+
+/// Run regressions for each return variable with lags up to 12
+reg ca L1.ca L2.ca L3.ca L4.ca L5.ca L6.ca L7.ca L8.ca L9.ca L10.ca L11.ca L12.ca
+estimates store ca_regression
+
+reg cta L1.cta L2.cta L3.cta L4.cta L5.cta L6.cta L7.cta L8.cta L9.cta L10.cta L11.cta L12.cta
+estimates store cta_regression
+
+reg ds L1.ds L2.ds L3.ds L4.ds L5.ds L6.ds L7.ds L8.ds L9.ds L10.ds L11.ds L12.ds
+estimates store ds_regression
+
+reg em L1.em L2.em L3.em L4.em L5.em L6.em L7.em L8.em L9.em L10.em L11.em L12.em
+estimates store em_regression
+
+reg emn L1.emn L2.emn L3.emn L4.emn L5.emn L6.emn L7.emn L8.emn L9.emn L10.emn L11.emn L12.emn
+estimates store emn_regression
+
+reg ed L1.ed L2.ed L3.ed L4.ed L5.ed L6.ed L7.ed L8.ed L9.ed L10.ed L11.ed L12.ed
+estimates store ed_regression
+
+reg fia L1.fia L2.fia L3.fia L4.fia L5.fia L6.fia L7.fia L8.fia L9.fia L10.fia L11.fia L12.fia
+estimates store fia_regression
+
+reg gm L1.gm L2.gm L3.gm L4.gm L5.gm L6.gm L7.gm L8.gm L9.gm L10.gm L11.gm L12.gm
+estimates store gm_regression
+
+reg lse L1.lse L2.lse L3.lse L4.lse L5.lse L6.lse L7.lse L8.lse L9.lse L10.lse L11.lse L12.lse
+estimates store lse_regression
+
+reg ma L1.ma L2.ma L3.ma L4.ma L5.ma L6.ma L7.ma L8.ma L9.ma L10.ma L11.ma L12.ma
+estimates store ma_regression
+
+reg rv L1.rv L2.rv L3.rv L4.rv L5.rv L6.rv L7.rv L8.rv L9.rv L10.rv L11.rv L12.rv
+estimates store rv_regression
+
+reg ss L1.ss L2.ss L3.ss L4.ss L5.ss L6.ss L7.ss L8.ss L9.ss L10.ss L11.ss L12.ss
+estimates store ss_regression
+
+reg fof L1.fof L2.fof L3.fof L4.fof L5.fof L6.fof L7.fof L8.fof L9.fof L10.fof L11.fof L12.fof
+estimates store fof_regression
+
+/// Display all regression results
+estimates table ca_regression cta_regression ds_regression em_regression emn_regression ed_regression fia_regression gm_regression lse_regression ma_regression rv_regression ss_regression fof_regression, b se p
+
+
+//// ssc install outreg2
+
+/// Save results to a file for readability
+outreg2 [ca_regression cta_regression ds_regression em_regression emn_regression ed_regression fia_regression gm_regression lse_regression ma_regression rv_regression ss_regression fof_regression] using "regression_results_mom.xls", excel replace
+
+
+// Week 8
+clear all
+
+/// Import data into Stata (amend directory)
+
+
+import delimited "/Users/alasdairbrown/Downloads/Workshops/ECO-6004B Workshop 08 - Data.csv"
+
+/// choose country
+
+keep if ref_area=="USA"
+
+
+/// plot data
+
+twoway (line obs_value time_period if business_development_stage =="SEED") (line obs_value time_period if business_development_stage =="START") (line obs_value time_period if business_development_stage =="LATER") (line obs_value time_period if business_development_stage =="_T"), legend(label(1 "SEED") label(2 "START") label(3 "LATER") label(4 "TOTAL"))
+
+
+
+/// reshape data
+
+keep obs_value time_period business_development_stage
+
+reshape wide obs_value, i(time_period) j(business_development_stage) string
+
+
+// gen change variables (and check for stationarity)
+
+gen seed_ch = obs_valueSEED - obs_valueSEED[_n-1]
+
+gen start_ch = obs_valueSTART - obs_valueSTART[_n-1]
+
+gen later_ch = obs_valueLATER - obs_valueLATER[_n-1]
+
+tsset time_period
+
+/// stationarity for levels 
+
+/// compare test statistic to critical value.  If test statistic is more negative than critical value, then null is rejected and series is stationary.
+
+dfuller obs_valueSEED, lags(1)
+dfuller obs_valueSTART, lags(1)
+dfuller obs_valueLATER, lags(1)
+
+/// check stationarity for changes
+
+dfuller seed_ch, lags(1)
+dfuller start_ch, lags(1)
+dfuller later_ch, lags(1)
+
+/// plot levels
+
+twoway (line seed_ch time_period) (line start_ch time_period) (line later_ch time_period), legend(label(1 "SEED") label(2 "START") label(3 "LATER"))
+
+/// AR models (univariate)
+
+reg seed_ch L1.seed_ch, vce(robust)
+
+reg start_ch L1.start_ch, vce(robust)
+
+reg later_ch L1.later_ch, vce(robust)
+
+
+
+/// Vector autoregression (VAR models, multivariate)
+
+
+
+var seed_ch start_ch later_ch, lags(1/1)
+
+
+
+
+
+
