@@ -1,0 +1,6 @@
+import excel "C:\Users\jakes\Downloads\Cryptocurrency6004B.xlsx", firstrow clear
+gen date_clean = floor(Date)
+format date_clean %td
+tsset date_clean
+drop Date
+rename (date_clean Cardano Chainlink Cosmos CryptocomCoin Dogecoin Ethereum Iota Litecoin Monero Polkadot Solana Stellar Tether Tron Uniswap USDCoin WrappedBitcoin) (Date ADA LINK ATOM CRO DOGE ETH MIOTA LTC XMR DOT SOL XLM USDT TRX UNI USDC WBTC) 
