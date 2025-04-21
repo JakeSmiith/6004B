@@ -106,3 +106,13 @@ preserve
     ssc install heatplot, replace
     heatplot R
 restore
+
+
+/// Task 2 
+
+// Merging prices and caps
+use panel.dta, clear
+keep date crypto close cap
+
+// Compute daily index level
+
