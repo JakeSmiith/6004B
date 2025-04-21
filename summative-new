@@ -22,3 +22,29 @@ forvalues i = 1/`N' {
         save panel.dta, replace
     }
 }
+
+// Sense-checking
+codebook _all, compact
+tab crypto
+tab date if crypto=="Aave"
+
+//Informing STATA we have an unbalanced panel
+use panel.dta, clear
+rename date datestr
+generate date = date(substr(datestr,1,10),"YMD")
+format date %tdDD/NN/CCYY
+drop datestr
+encode crypto, gen(crypto_id)
+xtset crypto_id date
+xtdescribe
+levelsof crypto_id, local(ids)
+foreach id of local ids {
+    di as text "=== crypto_id = `id' ==="
+    preserve
+      keep if crypto_id==`id'
+      tsreport
+    restore
+}
+
+
+
