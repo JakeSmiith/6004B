@@ -1,0 +1,24 @@
+/// Extracting files from zip folder
+clear
+cd "C:\Users\jakes\Downloads"
+cap shell rmdir /s /q "Summative 001 Data"
+unzipfile "Summative 001 Data (2).zip", replace
+
+/// Importing and appending all 23 cryptocurrencies. 
+cd "C:\Users\jakes\Downloads\Summative 001 Data"
+local tickers Aave BinanceCoin Bitcoin Cardano ChainLink Cosmos CryptocomCoin Dogecoin EOS Ethereum Iota Litecoin Monero NEM Polkadot Solana Stellar Tether Tron USDcoin Uniswap WrappedBitcoin XRP
+local N = wordcount("`tickers'")
+local first = 1
+forvalues i = 1/`N' {
+    local coin : word `i' of `tickers'
+    import delimited using "coin_`coin'.csv", clear stringcols(_all) encoding(utf8)
+    gen crypto = "`coin'"
+    if `first' {
+        save panel.dta, replace
+        local first = 0
+    }
+    else {
+        append using panel.dta
+        save panel.dta, replace
+    }
+}
