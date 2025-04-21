@@ -53,14 +53,41 @@ drop if missing(ret)
 tsline ret if crypto=="Bitcoin", title("Bitcoin Daily Returns") xtitle("Date") ytitle("Return")
 histogram ret if crypto=="Bitcoin", percent normal title("Bitcoin Return Distribution")
 
-// Time-series of returns - BTC
+// Time-series of returns - Loop
 set scheme s1color
-tsline ret if crypto=="Bitcoin", scheme(s1color) title("Figure 1. Bitcoin Daily Returns") xtitle("Date") ytitle("Return") ylabel(-0.4(0.1)0.4) xlabel(, format(%tdDD/NN/CCYY) angle(45) grid) legend(off)
-graph export "Figure1_Bitcoin_Daily_Returns.png", replace width(800)
+local tickers Aave BinanceCoin Bitcoin Cardano ChainLink Cosmos CryptocomCoin Dogecoin EOS Ethereum Iota Litecoin Monero NEM Polkadot Solana Stellar Tether Tron USDcoin Uniswap WrappedBitcoin XRP
 
-//Distribution of returns - BTC
-histogram ret if crypto=="Bitcoin", scheme(s1color) percent normal title("Figure 2. Bitcoin Return Distribution") xtitle("Return") ytitle("Percent") xlabel(-0.4(0.1)0.4) legend(off)
-graph export "Figure2_Bitcoin_Return_Distribution.png", replace width(800)
+// Time-series returns
+foreach coin of local tickers {
+    tsline ret if crypto=="`coin'", name(ts_`coin', replace) title("`coin' Daily Returns") xtitle("Date") ytitle("Return") xlabel(, format(%tdDD/NN/CCYY) angle(45) grid) ylabel(-0.4(0.1)0.4) legend(off)
+}
+
+// Distribution of returns
+foreach coin of local tickers {
+    histogram ret if crypto=="`coin'", name(hist_`coin', replace) percent normal title("`coin' Return Distribution") xtitle("Return") ytitle("Percent") xlabel(-0.4(0.1)0.4) legend(off)
+}
+
+// Testing for normality through Jarque-Bera test
+levelsof crypto, local(coins)
+display "=== Jarque–Bera Tests of Return Normality ==="
+foreach c of local coins {
+    display as text "### `c' ###"
+    sktest ret if crypto=="`c'"
+}
+
+// Calculating mean, stdev, and Sharpe Ratio
+egen mean_ret = mean(ret), by(crypto)
+egen sd_ret   = sd(ret),   by(crypto)
+gen  sharpe   = mean_ret/sd_ret
+format mean_ret sd_ret sharpe %9.4f
+preserve
+keep crypto mean_ret sd_ret sharpe
+duplicates drop
+list, noobs clean
+restore
+
+
+
 
 
 
