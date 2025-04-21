@@ -86,8 +86,23 @@ duplicates drop
 list, noobs clean
 restore
 
+// Durbin-Watson test to check for autocorrelation of daily returns. 
+gen cons = 1
+levelsof crypto, local(coins)
+display "=== Durbin–Watson Tests of Return Autocorrelation ==="
+foreach c of local coins {
+    display as text "### `c' ###"
+    regress ret cons if crypto=="`c'"
+    estat dwatson
+}
+drop cons
 
-
-
-
-
+// Heatplot for correlations between variables
+preserve
+    keep date crypto ret
+    reshape wide ret, i(date) j(crypto) string
+    corr ret*
+    matrix R = r(C)
+    ssc install heatplot, replace
+    heatplot R
+restore
