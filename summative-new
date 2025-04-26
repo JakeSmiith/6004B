@@ -70,6 +70,7 @@ foreach coin of local tickers {
 // Combined graph
 graph combine ts_Aave ts_BinanceCoin ts_Bitcoin ts_Cardano ts_ChainLink ts_Cosmos ts_CryptocomCoin ts_Dogecoin ts_EOS ts_Ethereum ts_Iota ts_Litecoin ts_Monero ts_NEM ts_Polkadot ts_Solana ts_Stellar ts_Tether ts_Tron ts_USDcoin ts_Uniswap ts_WrappedBitcoin ts_XRP, cols(5) name(ts_all, replace) title("Daily Returns: All 23 Cryptocurrencies")
 
+// Combined return distribution
 local hists
 foreach coin of local tickers {
     local hists "`hists' hist_`coin'"
@@ -96,15 +97,30 @@ list, noobs clean
 restore
 
 // Durbin-Watson test to check for autocorrelation of daily returns. 
+capture drop cons
 gen cons = 1
+tempfile stats
+postfile sf str20 crypto jb_chi2 jb_p dw_d using `stats', replace
 levelsof crypto, local(coins)
-display "=== Durbin–Watson Tests of Return Autocorrelation ==="
 foreach c of local coins {
-    display as text "### `c' ###"
-    regress ret cons if crypto=="`c'"
-    estat dwatson
+    quietly sktest ret if crypto=="`c'"
+    local chi2 = r(chi2)
+    local p    = chi2tail(2, `chi2')
+
+    quietly regress ret cons if crypto=="`c'"
+    quietly estat dwatson
+    local d    = r(dw)
+
+    post sf ("`c'") (`chi2') (`p') (`d')
 }
+postclose sf
 drop cons
+use `stats', clear
+mkmat jb_chi2 jb_p dw_d, matrix(TESTS) rownames(crypto)
+matrix colnames TESTS = "JB χ²" "JB p-value" "Durbin–Watson d"
+ssc install estout, replace
+esttab matrix(TESTS) using "JB_DW_Table.rtf", replace title("Jarque–Bera & Durbin–Watson Tests") noobs nonumber nomtitles b(4)
+
 
 // Heatplot for correlations between variables
 preserve
@@ -265,3 +281,4 @@ mkmat beta beta_vol30 beta_vol60 beta_vol120, matrix(M) rownames(crypto)
 matrix colnames M = "Full-sample β" "Vol β (30 days)" "Vol β (60 days)" "Vol β (120 days)"
 ssc install estout, replace
 esttab matrix(M) using "CryptoBetas.rtf", replace title("Cryptocurrency Betas & Rolling-Window Volatilities") noobs nonumber nomtitles b(4)
+
