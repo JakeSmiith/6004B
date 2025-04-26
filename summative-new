@@ -109,10 +109,115 @@ restore
 
 
 /// Task 2 
+cd "C:\Users\jakes\Downloads\Summative 001 Data"
+use "panel.dta", clear
 
-// Merging prices and caps
-use panel.dta, clear
-keep date crypto close cap
+capture confirm numeric variable marketcap
+if _rc destring marketcap, replace ignore(",") force
+capture confirm numeric variable close
+if _rc destring close,     replace ignore(",") force
+capture confirm numeric variable date
+if _rc {
+    rename date datestr
+    gen date = date(substr(datestr,1,10),"YMD")
+    format date %tdDD/NN/CCYY
+    drop datestr
+}
+encode crypto, gen(crypto_id)
+label var crypto_id "Crypto ID"
+xtset crypto_id date
 
-// Compute daily index level
+bysort crypto_id (date): gen ret = (close - close[_n-1]) / close[_n-1]
+drop if missing(ret)
+egen mean_ret = mean(ret), by(crypto)
+egen sd_ret   = sd(ret),   by(crypto)
+gen  sharpe  = mean_ret / sd_ret
+format mean_ret sd_ret sharpe %9.4f
+
+bysort crypto_id (date): gen cap_lag = marketcap[_n-1]
+drop if missing(cap_lag)
+bysort date: egen total_cap_lag = total(cap_lag)
+gen w = cap_lag / total_cap_lag
+label var w "Lagged value-weight"
+
+bysort date: egen sum_w = total(w)
+summ sum_w, meanonly
+display "Min sum_w=" r(min) "  Max sum_w=" r(max)
+
+bysort date: egen mkt_ret = total(w * ret)
+label var mkt_ret "Value-weighted market return"
+
+preserve
+    keep date mkt_ret
+    duplicates drop date, force
+    sort date
+    gen mkt_index = 100
+    quietly count
+    local N = r(N)
+    forvalues i = 2/`N' {
+        replace mkt_index = mkt_index[_n-1]*(1+mkt_ret) in `i'
+    }
+    tempfile idx
+    save `idx', replace
+restore
+
+merge m:1 date using `idx'
+drop _merge
+label var mkt_index "VW Crypto Index (base=100)"
+
+save "panel_with_index.dta", replace
+quietly statsby beta=_b[mkt_ret] se=_se[mkt_ret], by(crypto) saving(betas_full.dta, replace): regress ret mkt_ret
+
+use "betas_full.dta", clear
+label var beta "Full-sample β"
+label var se   "SE(β)"
+list crypto beta se, noobs clean
+
+use "panel_with_index.dta", clear
+xtset crypto_id date
+capture which rangestat
+if _rc ssc install rangestat, replace
+
+// Preparing temp file to 
+tempfile voldata
+
+// Creating base file
+local w = 30
+local l = `w' - 1
+di as txt "----> Rolling-window = `w' days (offset = `l')"
+rangestat (reg) ret mkt_ret, interval(date -`l' 0) by(crypto_id)
+rename b_mkt_ret   beta30
+keep if reg_nobs==`w'
+bysort crypto_id: egen beta_vol30 = sd(beta30)
+keep crypto_id beta_vol30
+duplicates drop
+save `voldata', replace
+
+// Looping other windows, merging on to the master
+foreach w in 60 120 {
+    local l = `w' - 1
+    di as txt "----> Rolling-window = `w' days (offset = `l')"
+
+    use "panel_with_index.dta", clear
+    xtset crypto_id date
+    
+    rangestat (reg) ret mkt_ret, interval(date -`l' 0) by(crypto_id)
+    rename b_mkt_ret   beta`w'
+    keep if reg_nobs==`w'
+    bysort crypto_id: egen beta_vol`w' = sd(beta`w')
+    keep crypto_id beta_vol`w'
+    duplicates drop
+
+    * merge this window’s vol onto the master voldata
+    merge 1:1 crypto_id using `voldata'
+    drop _merge
+    save `voldata', replace
+}
+
+// Displaying side-by-side volatilities
+use `voldata', clear
+label var beta_vol30  "Vol β (30d)"
+label var beta_vol60  "Vol β (60d)"
+label var beta_vol120 "Vol β (120d)"
+list crypto_id beta_vol30 beta_vol60 beta_vol120, noobs clean
 
