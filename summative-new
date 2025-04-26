@@ -67,6 +67,15 @@ foreach coin of local tickers {
     histogram ret if crypto=="`coin'", name(hist_`coin', replace) percent normal title("`coin' Return Distribution") xtitle("Return") ytitle("Percent") xlabel(-0.4(0.1)0.4) legend(off)
 }
 
+// Combined graph
+graph combine ts_Aave ts_BinanceCoin ts_Bitcoin ts_Cardano ts_ChainLink ts_Cosmos ts_CryptocomCoin ts_Dogecoin ts_EOS ts_Ethereum ts_Iota ts_Litecoin ts_Monero ts_NEM ts_Polkadot ts_Solana ts_Stellar ts_Tether ts_Tron ts_USDcoin ts_Uniswap ts_WrappedBitcoin ts_XRP, cols(5) name(ts_all, replace) title("Daily Returns: All 23 Cryptocurrencies")
+
+local hists
+foreach coin of local tickers {
+    local hists "`hists' hist_`coin'"
+}
+graph combine `hists', cols(5) name(hist_all, replace) title("Return Distributions: All 23 Cryptocurrencies")
+
 // Testing for normality through Jarque-Bera test
 levelsof crypto, local(coins)
 display "=== Jarque–Bera Tests of Return Normality ==="
@@ -221,3 +230,38 @@ label var beta_vol60  "Vol β (60d)"
 label var beta_vol120 "Vol β (120d)"
 list crypto_id beta_vol30 beta_vol60 beta_vol120, noobs clean
 
+* 1)
+use "panel_with_index.dta", clear
+keep crypto crypto_id
+duplicates drop crypto_id, force       // ← need the ", force" here
+tempfile names
+save `names', replace
+
+* 2) merge names onto voldata
+use `voldata', clear
+merge 1:1 crypto_id using `names'
+drop _merge
+tempfile vol_named
+save `vol_named', replace
+
+* 3) bring in the full‐sample betas
+use "betas_full.dta", clear
+* nothing to rename if your string var is already called "crypto"
+merge 1:1 crypto using `vol_named'
+drop _merge
+save combined_stats.dta, replace
+
+* 4) pre‐label every variable in the dataset itself
+use combined_stats.dta, clear
+label var crypto        "Crypto"
+label var beta          "Full‐sample β"
+label var se            "SE(β)"
+label var beta_vol30    "Vol β (30 days)"
+label var beta_vol60    "Vol β (60 days)"
+label var beta_vol120   "Vol β (120 days)"
+save combined_stats.dta, replace
+
+mkmat beta beta_vol30 beta_vol60 beta_vol120, matrix(M) rownames(crypto)
+matrix colnames M = "Full-sample β" "Vol β (30 days)" "Vol β (60 days)" "Vol β (120 days)"
+ssc install estout, replace
+esttab matrix(M) using "CryptoBetas.rtf", replace title("Cryptocurrency Betas & Rolling-Window Volatilities") noobs nonumber nomtitles b(4)
