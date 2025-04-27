@@ -87,7 +87,11 @@ foreach coin of local highvol {
     local hist_high_list "`hist_high_list' hist_high_`coin'"
 }
 graph combine `ts_high_list', cols(5) name(ts_high, replace) title("Daily Returns: High-Volatility Cryptocurrencies", size(medium))
+graph export "HighVol_DailyReturns.png", replace width(2000) height(1000)
+
 graph combine `hist_high_list', cols(5) name(hist_high, replace) title("Return Distributions: High-Volatility Cryptocurrencies", size(medium))
+graph export "HighVol_Distributions.png", replace width(2000) height(1000)
+
 
 // Low‐volatility coins
 local ts_low_list  ""
@@ -99,7 +103,10 @@ foreach coin of local lowvol {
     local hist_low_list "`hist_low_list' hist_low_`coin'"
 }
 graph combine `ts_low_list', cols(5) name(ts_low, replace) title("Daily Returns: Low-Volatility Cryptocurrencies", size(medium))
+graph export "LowVol_DailyReturns.png", replace width(2000) height(1000)
+
 graph combine `hist_low_list', cols(5) name(hist_low, replace) title("Return Distributions: Low-Volatility Cryptocurrencies", size(medium))
+graph export "LowVol_Distributions.png", replace width(2000) height(1000)
 
 
 // Testing for normality through Jarque-Bera test
