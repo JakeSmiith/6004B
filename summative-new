@@ -90,11 +90,13 @@ egen mean_ret = mean(ret), by(crypto)
 egen sd_ret   = sd(ret),   by(crypto)
 gen  sharpe   = mean_ret/sd_ret
 format mean_ret sd_ret sharpe %9.4f
-preserve
-keep crypto mean_ret sd_ret sharpe
-duplicates drop
-list, noobs clean
-restore
+
+
+collapse (mean) mean_ret=ret (sd) sd_ret=ret, by(crypto)
+gen sharpe = mean_ret/sd_ret
+mkmat mean_ret sd_ret sharpe, matrix(M) rownames(crypto)
+matrix colnames M = Mean_Return Std_Dev Sharpe_Ratio
+esttab matrix(M) using "SummaryStats.rtf", replace noobs nonumber b(2)
 
 // Durbin-Watson test to check for autocorrelation of daily returns. 
 capture drop cons
@@ -246,28 +248,23 @@ label var beta_vol60  "Vol β (60d)"
 label var beta_vol120 "Vol β (120d)"
 list crypto_id beta_vol30 beta_vol60 beta_vol120, noobs clean
 
-* 1)
 use "panel_with_index.dta", clear
 keep crypto crypto_id
 duplicates drop crypto_id, force       // ← need the ", force" here
 tempfile names
 save `names', replace
 
-* 2) merge names onto voldata
 use `voldata', clear
 merge 1:1 crypto_id using `names'
 drop _merge
 tempfile vol_named
 save `vol_named', replace
 
-* 3) bring in the full‐sample betas
 use "betas_full.dta", clear
-* nothing to rename if your string var is already called "crypto"
 merge 1:1 crypto using `vol_named'
 drop _merge
 save combined_stats.dta, replace
 
-* 4) pre‐label every variable in the dataset itself
 use combined_stats.dta, clear
 label var crypto        "Crypto"
 label var beta          "Full‐sample β"
