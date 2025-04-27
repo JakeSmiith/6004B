@@ -46,36 +46,54 @@ foreach id of local ids {
     restore
 }
 
-// Computing daily returns
+// Recompute daily returns
+capture drop ret
 destring close, replace ignore(",")
-bysort crypto_id (date): gen ret = (close - close[_n-1]) / close[_n-1]
+sort crypto_id date
+bysort crypto_id: gen ret = (close - close[_n-1]) / close[_n-1]
 drop if missing(ret)
-tsline ret if crypto=="Bitcoin", title("Bitcoin Daily Returns") xtitle("Date") ytitle("Return")
-histogram ret if crypto=="Bitcoin", percent normal title("Bitcoin Return Distribution")
 
-// Time-series of returns - Loop
+// Compute cross‐sectional volatility
+egen sd_ret = sd(ret), by(crypto)
+
+// Split into high‐ and low‐volatility halves
+preserve
+keep crypto sd_ret
+duplicates drop
+gsort -sd_ret
+count
+local N = r(N)
+local half  = ceil(`N'/2)
+local start = `half' + 1
+levelsof crypto in 1/`half',      local(highvol)
+levelsof crypto in `start'/`N',   local(lowvol)
+restore
+
 set scheme s1color
-local tickers Aave BinanceCoin Bitcoin Cardano ChainLink Cosmos CryptocomCoin Dogecoin EOS Ethereum Iota Litecoin Monero NEM Polkadot Solana Stellar Tether Tron USDcoin Uniswap WrappedBitcoin XRP
 
-// Time-series returns
-foreach coin of local tickers {
-    tsline ret if crypto=="`coin'", name(ts_`coin', replace) title("`coin' Daily Returns") xtitle("Date") ytitle("Return") xlabel(, format(%tdDD/NN/CCYY) angle(45) grid) ylabel(-0.4(0.1)0.4) legend(off)
+// High-volatility coins
+local ts_high_list  ""
+local hist_high_list ""
+foreach coin of local highvol {
+    tsline      ret if crypto=="`coin'", name(ts_high_`coin', replace) title("`coin' Daily Returns")      xtitle("Date") ytitle("Return") xlabel(, format(%tdDD/NN/CCYY) angle(45) grid) ylabel(-0.4(0.1)0.4) legend(off)
+    histogram   ret if crypto=="`coin'", name(hist_high_`coin', replace) percent normal title("`coin' Return Distribution") xtitle("Return") ytitle("Percent") xlabel(-0.4(0.1)0.4) legend(off)
+    local ts_high_list  "`ts_high_list' ts_high_`coin'"
+    local hist_high_list "`hist_high_list' hist_high_`coin'"
 }
+graph combine `ts_high_list',  cols(5) name(ts_high,  replace) title("Daily Returns: High-Volatility Cryptocurrencies")
+graph combine `hist_high_list', cols(5) name(hist_high, replace) title("Return Distributions: High-Volatility Cryptocurrencies")
 
-// Distribution of returns
-foreach coin of local tickers {
-    histogram ret if crypto=="`coin'", name(hist_`coin', replace) percent normal title("`coin' Return Distribution") xtitle("Return") ytitle("Percent") xlabel(-0.4(0.1)0.4) legend(off)
+// === Low-volatility coins ===
+local ts_low_list  ""
+local hist_low_list ""
+foreach coin of local lowvol {
+    tsline      ret if crypto=="`coin'", name(ts_low_`coin', replace) title("`coin' Daily Returns")      xtitle("Date") ytitle("Return") xlabel(, format(%tdDD/NN/CCYY) angle(45) grid) ylabel(-0.4(0.1)0.4) legend(off)
+    histogram   ret if crypto=="`coin'", name(hist_low_`coin', replace) percent normal title("`coin' Return Distribution") xtitle("Return") ytitle("Percent") xlabel(-0.4(0.1)0.4) legend(off)
+    local ts_low_list  "`ts_low_list' ts_low_`coin'"
+    local hist_low_list "`hist_low_list' hist_low_`coin'"
 }
-
-// Combined graph
-graph combine ts_Aave ts_BinanceCoin ts_Bitcoin ts_Cardano ts_ChainLink ts_Cosmos ts_CryptocomCoin ts_Dogecoin ts_EOS ts_Ethereum ts_Iota ts_Litecoin ts_Monero ts_NEM ts_Polkadot ts_Solana ts_Stellar ts_Tether ts_Tron ts_USDcoin ts_Uniswap ts_WrappedBitcoin ts_XRP, cols(5) name(ts_all, replace) title("Daily Returns: All 23 Cryptocurrencies")
-
-// Combined return distribution
-local hists
-foreach coin of local tickers {
-    local hists "`hists' hist_`coin'"
-}
-graph combine `hists', cols(5) name(hist_all, replace) title("Return Distributions: All 23 Cryptocurrencies")
+graph combine `ts_low_list',  cols(5) name(ts_low,  replace) title("Daily Returns: Low-Volatility Cryptocurrencies")
+graph combine `hist_low_list', cols(5) name(hist_low, replace) title("Return Distributions: Low-Volatility Cryptocurrencies")
 
 // Testing for normality through Jarque-Bera test
 levelsof crypto, local(coins)
