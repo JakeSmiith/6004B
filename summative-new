@@ -79,11 +79,12 @@ graph combine `hists', cols(5) name(hist_all, replace) title("Return Distributio
 
 // Testing for normality through Jarque-Bera test
 levelsof crypto, local(coins)
-display "=== Jarque–Bera Tests of Return Normality ==="
+di "=== Jarque–Bera Tests of Return Normality ==="
 foreach c of local coins {
     display as text "### `c' ###"
     sktest ret if crypto=="`c'"
 }
+
 
 // Calculating mean, stdev, and Sharpe Ratio
 egen mean_ret = mean(ret), by(crypto)
@@ -91,14 +92,16 @@ egen sd_ret   = sd(ret),   by(crypto)
 gen  sharpe   = mean_ret/sd_ret
 format mean_ret sd_ret sharpe %9.4f
 
-
+preserve
 collapse (mean) mean_ret=ret (sd) sd_ret=ret, by(crypto)
 gen sharpe = mean_ret/sd_ret
 mkmat mean_ret sd_ret sharpe, matrix(M) rownames(crypto)
 matrix colnames M = Mean_Return Std_Dev Sharpe_Ratio
 esttab matrix(M) using "SummaryStats.rtf", replace noobs nonumber b(2)
+restore
 
 // Durbin-Watson test to check for autocorrelation of daily returns. 
+preserve
 capture drop cons
 gen cons = 1
 tempfile stats
@@ -108,11 +111,9 @@ foreach c of local coins {
     quietly sktest ret if crypto=="`c'"
     local chi2 = r(chi2)
     local p    = chi2tail(2, `chi2')
-
     quietly regress ret cons if crypto=="`c'"
     quietly estat dwatson
     local d    = r(dw)
-
     post sf ("`c'") (`chi2') (`p') (`d')
 }
 postclose sf
@@ -122,16 +123,19 @@ mkmat jb_chi2 jb_p dw_d, matrix(TESTS) rownames(crypto)
 matrix colnames TESTS = "JB χ²" "JB p-value" "Durbin–Watson d"
 ssc install estout, replace
 esttab matrix(TESTS) using "JB_DW_Table.rtf", replace title("Jarque–Bera & Durbin–Watson Tests") noobs nonumber nomtitles b(4)
-
+restore
 
 // Heatplot for correlations between variables
 preserve
-    keep date crypto ret
-    reshape wide ret, i(date) j(crypto) string
-    corr ret*
-    matrix R = r(C)
-    ssc install heatplot, replace
-    heatplot R
+keep date crypto ret
+reshape wide ret, i(date) j(crypto) string
+corr ret*
+matrix R = r(C)
+matrix rownames R = Aave BinanceCoin Bitcoin Cardano ChainLink Cosmos CryptocomCoin Dogecoin EOS Ethereum Iota Litecoin Monero NEM Polkadot Solana Stellar Tether Tron USDcoin Uniswap WrappedBitcoin XRP
+matrix colnames R = Aave BinanceCoin Bitcoin Cardano ChainLink Cosmos CryptocomCoin Dogecoin EOS Ethereum Iota Litecoin Monero NEM Polkadot Solana Stellar Tether Tron USDcoin Uniswap WrappedBitcoin XRP
+ssc install heatplot, replace
+set scheme s2color
+heatplot R, title("Cryptocurrency Return Correlations") xlabel(, valuelabel angle(45) labsize(small)) ylabel(, valuelabel labsize(small)) color(Blues) graphregion(color(white)) plotregion(color(white))
 restore
 
 
