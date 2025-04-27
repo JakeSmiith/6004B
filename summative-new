@@ -69,31 +69,38 @@ levelsof crypto in 1/`half',      local(highvol)
 levelsof crypto in `start'/`N',   local(lowvol)
 restore
 
+// Create a winsorised plotting variable capped at ±0.4
+clonevar ret_plot = ret
+replace ret_plot =  0.4 if ret_plot >  0.4
+replace ret_plot = -0.4 if ret_plot < -0.4
+
+// Switch to the s1color scheme
 set scheme s1color
 
-// High-volatility coins
+// High‐volatility coins
 local ts_high_list  ""
 local hist_high_list ""
 foreach coin of local highvol {
-    tsline      ret if crypto=="`coin'", name(ts_high_`coin', replace) title("`coin' Daily Returns")      xtitle("Date") ytitle("Return") xlabel(, format(%tdDD/NN/CCYY) angle(45) grid) ylabel(-0.4(0.1)0.4) legend(off)
-    histogram   ret if crypto=="`coin'", name(hist_high_`coin', replace) percent normal title("`coin' Return Distribution") xtitle("Return") ytitle("Percent") xlabel(-0.4(0.1)0.4) legend(off)
+    tsline ret_plot if crypto=="`coin'", name(ts_high_`coin', replace) title("`coin' Daily Returns", size(small)) xtitle("Date", size(vsmall)) ytitle("Return", size(vsmall)) xlabel(, format(%tdCY) angle(45) labsize(vsmall) grid) ylabel(-0.4(0.05)0.4, labsize(vsmall)) legend(off)
+    histogram ret_plot if crypto=="`coin'", name(hist_high_`coin', replace) percent normal title("`coin' Return Distribution", size(small)) xtitle("Return", size(vsmall)) ytitle("Percent", size(vsmall)) xlabel(-0.4(0.05)0.4, labsize(vsmall) grid) xscale(range(-0.4 0.4)) ylabel(, labsize(vsmall)) legend(off)
     local ts_high_list  "`ts_high_list' ts_high_`coin'"
     local hist_high_list "`hist_high_list' hist_high_`coin'"
 }
-graph combine `ts_high_list',  cols(5) name(ts_high,  replace) title("Daily Returns: High-Volatility Cryptocurrencies")
-graph combine `hist_high_list', cols(5) name(hist_high, replace) title("Return Distributions: High-Volatility Cryptocurrencies")
+graph combine `ts_high_list', cols(5) name(ts_high, replace) title("Daily Returns: High-Volatility Cryptocurrencies", size(medium))
+graph combine `hist_high_list', cols(5) name(hist_high, replace) title("Return Distributions: High-Volatility Cryptocurrencies", size(medium))
 
-// === Low-volatility coins ===
+// Low‐volatility coins
 local ts_low_list  ""
 local hist_low_list ""
 foreach coin of local lowvol {
-    tsline      ret if crypto=="`coin'", name(ts_low_`coin', replace) title("`coin' Daily Returns")      xtitle("Date") ytitle("Return") xlabel(, format(%tdDD/NN/CCYY) angle(45) grid) ylabel(-0.4(0.1)0.4) legend(off)
-    histogram   ret if crypto=="`coin'", name(hist_low_`coin', replace) percent normal title("`coin' Return Distribution") xtitle("Return") ytitle("Percent") xlabel(-0.4(0.1)0.4) legend(off)
+    tsline ret_plot if crypto=="`coin'", name(ts_low_`coin', replace) title("`coin' Daily Returns", size(small)) xtitle("Date", size(vsmall)) ytitle("Return", size(vsmall)) xlabel(, format(%tdCY) angle(45) labsize(vsmall) grid) ylabel(-0.4(0.05)0.4, labsize(vsmall)) legend(off)
+    histogram ret_plot if crypto=="`coin'", name(hist_low_`coin', replace) percent normal title("`coin' Return Distribution", size(small)) xtitle("Return", size(vsmall)) ytitle("Percent", size(vsmall)) xlabel(-0.4(0.05)0.4, labsize(vsmall) grid) xscale(range(-0.4 0.4)) ylabel(, labsize(vsmall)) legend(off)
     local ts_low_list  "`ts_low_list' ts_low_`coin'"
     local hist_low_list "`hist_low_list' hist_low_`coin'"
 }
-graph combine `ts_low_list',  cols(5) name(ts_low,  replace) title("Daily Returns: Low-Volatility Cryptocurrencies")
-graph combine `hist_low_list', cols(5) name(hist_low, replace) title("Return Distributions: Low-Volatility Cryptocurrencies")
+graph combine `ts_low_list', cols(5) name(ts_low, replace) title("Daily Returns: Low-Volatility Cryptocurrencies", size(medium))
+graph combine `hist_low_list', cols(5) name(hist_low, replace) title("Return Distributions: Low-Volatility Cryptocurrencies", size(medium))
+
 
 // Testing for normality through Jarque-Bera test
 levelsof crypto, local(coins)
@@ -102,7 +109,6 @@ foreach c of local coins {
     display as text "### `c' ###"
     sktest ret if crypto=="`c'"
 }
-
 
 // Calculating mean, stdev, and Sharpe Ratio
 egen mean_ret = mean(ret), by(crypto)
