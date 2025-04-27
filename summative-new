@@ -367,25 +367,31 @@ capture which rangestat
 if _rc ssc install rangestat, replace
 
 preserve
-  rangestat (reg) ret mkt_ret, interval(date -29 0) by(crypto_id)
+  rangestat (reg) ret mkt_ret, interval(date -29   0) by(crypto_id)
   rename b_mkt_ret beta30d
-  keep crypto_id date beta30d
+  keep crypto_id date beta30d reg_nobs
+  drop if reg_nobs < 30
+  drop reg_nobs
   tempfile b30
   save `b30', replace
 restore
 
 preserve
-  rangestat (reg) ret mkt_ret, interval(date -59 0) by(crypto_id)
+  rangestat (reg) ret mkt_ret, interval(date -59   0) by(crypto_id)
   rename b_mkt_ret beta60d
-  keep crypto_id date beta60d
+  keep crypto_id date beta60d reg_nobs
+  drop if reg_nobs < 60
+  drop reg_nobs
   tempfile b60
   save `b60', replace
 restore
 
 preserve
-  rangestat (reg) ret mkt_ret, interval(date -89 0) by(crypto_id)
+  rangestat (reg) ret mkt_ret, interval(date -89   0) by(crypto_id)
   rename b_mkt_ret beta90d
-  keep crypto_id date beta90d
+  keep crypto_id date beta90d reg_nobs
+  drop if reg_nobs < 90
+  drop reg_nobs
   tempfile b90
   save `b90', replace
 restore
