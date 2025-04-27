@@ -235,10 +235,52 @@ label var mkt_index "VW Crypto Index (base=100)"
 save "panel_with_index.dta", replace
 quietly statsby beta=_b[mkt_ret] se=_se[mkt_ret], by(crypto) saving(betas_full.dta, replace): regress ret mkt_ret
 
+use betas_full.dta, clear
+encode crypto, gen(crypto_id)
+save betas_full.dta, replace
+
+///
+use panel_with_index.dta, clear
+sort crypto_id date
+capture drop cap_lag
+bysort crypto_id (date): gen cap_lag = marketcap[_n-1]
+drop if missing(cap_lag)
+bysort crypto_id: egen avg_mcap = mean(cap_lag)
+
+keep crypto_id avg_mcap
+duplicates drop crypto_id, force
+
+merge 1:1 crypto_id using "betas_full.dta", keepusing(beta)
+
+xtile cap_grp = avg_mcap, nq(2)
+label define capgrp 1 "Low-Cap" 2 "High-Cap"
+label values cap_grp capgrp
+tab cap_grp
+tabstat beta, by(cap_grp) stats(mean) columns(statistics)
+ttest beta, by(cap_grp)
+
+gen ln_mcap = ln(avg_mcap)
+regress beta ln_mcap, robust
+estimates store SizeBeta
+scatter beta ln_mcap, msize(tiny) msymbol(o) title("Full-Sample β vs. log(Avg Lagged Market-Cap)") xtitle("ln(Avg Lagged Market-Cap)") ytitle("Full-Sample β") xlabel(, labsize(small)) ylabel(, labsize(small)) legend(off)
+
+
 use "betas_full.dta", clear
-label var beta "Full-sample β"
-label var se   "SE(β)"
-list crypto beta se, noobs clean
+encode crypto, gen(crypto_num) label(crypto_lbl)
+gen str lab = string(beta, "%5.2f") + " (" + string(se, "%5.2f") + ")"
+gsort -beta
+gen order = _n
+label define orderlbl
+quietly {
+    forvalues i = 1/`=_N' {
+        local nm = crypto[`i']
+        label define orderlbl `i' "`nm'", add
+    }
+}
+label values order orderlbl
+
+twoway (bar beta order, barwidth(0.8)) (scatter beta order, msymbol(none) mlabel(lab) mlabposition(0) mlabsize(vsmall) mlabcolor(black) mlabangle(45) mlabgap(2)), title("Full-Sample β by Cryptocurrency") ylabel(0(.1)1.5, labsize(vsmall)) xlabel(1(1)`=_N', valuelabel angle(45) labsize(vsmall)) xtitle("Cryptocurrency") ytitle("β") legend(off) graphregion(color(white)) bgcolor(white)
+
 
 use "panel_with_index.dta", clear
 xtset crypto_id date
@@ -290,7 +332,7 @@ list crypto_id beta_vol30 beta_vol60 beta_vol120, noobs clean
 
 use "panel_with_index.dta", clear
 keep crypto crypto_id
-duplicates drop crypto_id, force       // ← need the ", force" here
+duplicates drop crypto_id, force
 tempfile names
 save `names', replace
 
@@ -318,4 +360,58 @@ mkmat beta beta_vol30 beta_vol60 beta_vol120, matrix(M) rownames(crypto)
 matrix colnames M = "Full-sample β" "Vol β (30 days)" "Vol β (60 days)" "Vol β (120 days)"
 ssc install estout, replace
 esttab matrix(M) using "CryptoBetas.rtf", replace title("Cryptocurrency Betas & Rolling-Window Volatilities") noobs nonumber nomtitles b(4)
+
+use "panel_with_index.dta", clear
+xtset crypto_id date
+capture which rangestat
+if _rc ssc install rangestat, replace
+
+preserve
+  rangestat (reg) ret mkt_ret, interval(date -29 0) by(crypto_id)
+  rename b_mkt_ret beta30d
+  keep crypto_id date beta30d
+  tempfile b30
+  save `b30', replace
+restore
+
+preserve
+  rangestat (reg) ret mkt_ret, interval(date -59 0) by(crypto_id)
+  rename b_mkt_ret beta60d
+  keep crypto_id date beta60d
+  tempfile b60
+  save `b60', replace
+restore
+
+preserve
+  rangestat (reg) ret mkt_ret, interval(date -89 0) by(crypto_id)
+  rename b_mkt_ret beta90d
+  keep crypto_id date beta90d
+  tempfile b90
+  save `b90', replace
+restore
+
+use `b30', clear
+merge 1:1 crypto_id date using `b60'
+drop _merge
+merge 1:1 crypto_id date using `b90'
+drop _merge
+save "rolling_beta_30_60_90.dta", replace
+
+use "rolling_beta_30_60_90.dta", clear
+merge 1:1 crypto_id date using "panel_with_index.dta", keepusing(crypto)
+drop _merge
+
+levelsof crypto, local(coins)
+
+foreach c of local coins {
+    preserve
+    keep if crypto == "`c'"
+    sort date
+    local safe = subinstr("`c'", " ", "_", .)
+    twoway line beta30d date || line beta60d date || line beta90d date, name(rolling_`safe', replace) title("Rolling β: `c' (30d vs 60d vs 90d)") xtitle("Date") ytitle("β") legend(order(1 "30-day" 2 "60-day" 3 "90-day") pos(6)) xlabel(, format(%tdMon_CCYY) angle(45)) graphregion(color(white)) bgcolor(white)
+    graph save rolling_beta30_60_90_`safe'.gph, replace
+    graph export rolling_beta30_60_90_`safe'.png, replace width(1200)
+    restore
+}
+
 
