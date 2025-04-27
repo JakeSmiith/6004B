@@ -131,6 +131,12 @@ matrix colnames M = Mean_Return Std_Dev Sharpe_Ratio
 esttab matrix(M) using "SummaryStats.rtf", replace noobs nonumber b(2)
 restore
 
+gen extreme_ret = abs(ret) > 0.4
+bysort crypto (date): egen extreme_count = total(extreme_ret)
+bysort crypto (extreme_count): keep if _n == 1
+list crypto extreme_count, sepby(crypto)
+
+
 // Durbin-Watson test to check for autocorrelation of daily returns. 
 preserve
 capture drop cons
@@ -168,7 +174,6 @@ ssc install heatplot, replace
 set scheme s2color
 heatplot R, title("Cryptocurrency Return Correlations") xlabel(, valuelabel angle(45) labsize(small)) ylabel(, valuelabel labsize(small)) color(Blues) graphregion(color(white)) plotregion(color(white))
 restore
-
 
 /// Task 2 
 cd "C:\Users\jakes\Downloads\Summative 001 Data"
