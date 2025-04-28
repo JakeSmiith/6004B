@@ -259,9 +259,14 @@ save "crypto_capgrp.dta", replace
 restore
 dir *.dta
 
+merge m:1 crypto_id using "betas_full.dta", keepusing(beta)
+drop _merge
+
 gen ln_mcap = ln(avg_mcap)
+ssc install estout, replace
 regress beta ln_mcap, robust
 estimates store SizeBeta
+esttab SizeBeta using "SizeBeta.rtf", replace title("Size–Beta Regression") b(3) se(2) starlevels(* .10 ** .05 *** .01) nonum nomtitles noobs
 scatter beta ln_mcap, msize(tiny) msymbol(o) title("Full-Sample β vs. log(Avg Lagged Market-Cap)") xtitle("ln(Avg Lagged Market-Cap)") ytitle("Full-Sample β") xlabel(, labsize(small)) ylabel(, labsize(small)) legend(off)
 
 
@@ -367,25 +372,31 @@ capture which rangestat
 if _rc ssc install rangestat, replace
 
 preserve
-  rangestat (reg) ret mkt_ret, interval(date -29 0) by(crypto_id)
+  rangestat (reg) ret mkt_ret, interval(date -29   0) by(crypto_id)
   rename b_mkt_ret beta30d
-  keep crypto_id date beta30d
+  keep crypto_id date beta30d reg_nobs
+  drop if reg_nobs < 30
+  drop reg_nobs
   tempfile b30
   save `b30', replace
 restore
 
 preserve
-  rangestat (reg) ret mkt_ret, interval(date -59 0) by(crypto_id)
+  rangestat (reg) ret mkt_ret, interval(date -59   0) by(crypto_id)
   rename b_mkt_ret beta60d
-  keep crypto_id date beta60d
+  keep crypto_id date beta60d reg_nobs
+  drop if reg_nobs < 60
+  drop reg_nobs
   tempfile b60
   save `b60', replace
 restore
 
 preserve
-  rangestat (reg) ret mkt_ret, interval(date -89 0) by(crypto_id)
+  rangestat (reg) ret mkt_ret, interval(date -89   0) by(crypto_id)
   rename b_mkt_ret beta90d
-  keep crypto_id date beta90d
+  keep crypto_id date beta90d reg_nobs
+  drop if reg_nobs < 90
+  drop reg_nobs
   tempfile b90
   save `b90', replace
 restore
@@ -408,21 +419,20 @@ foreach c of local coins {
     keep if crypto == "`c'"
     sort date
     local safe = subinstr("`c'", " ", "_", .)
-    twoway line beta30d date || line beta60d date || line beta90d date, name(rolling_`safe', replace) title("Rolling β: `c' (30d vs 60d vs 90d)") xtitle("Date") ytitle("β") legend(order(1 "30-day" 2 "60-day" 3 "90-day") pos(6)) xlabel(, format(%tdMon_CCYY) angle(45)) graphregion(color(white)) bgcolor(white)
+    twoway line beta30d date || line beta60d date || line beta90d date, name(rolling_`safe', replace) title("Rolling β: `c' (30/60/90d)", size(small)) xtitle("Date", size(vsmall)) ytitle("β", size(vsmall)) xlabel(, labsize(vsmall) angle(45)) ylabel(, labsize(vsmall)) legend(order(1 "30-day" 2 "60-day" 3 "90-day") cols(1) size(vsmall)) graphregion(color(white)) bgcolor(white)
     graph save rolling_beta30_60_90_`safe'.gph, replace
     graph export rolling_beta30_60_90_`safe'.png, replace width(1200)
     restore
 }
 
-// Combining graphs
 use "rolling_beta_30_60_90.dta", clear
 merge 1:1 crypto_id date using "panel_with_index.dta", keepusing(crypto)
 drop _merge
-merge m:1 crypto_id using "crypto_capgarp.dta"
+merge m:1 crypto_id using "crypto_capgrp.dta"
 drop _merge
 
-levelsof crypto if cap_grp==1, local(lowcoins)
-levelsof crypto if cap_grp==2, local(highcoins)
+levelsof crypto if cap_grp == 1, local(lowcoins)
+levelsof crypto if cap_grp == 2, local(highcoins)
 
 local lowgraphs ""
 foreach c of local lowcoins {
@@ -430,17 +440,14 @@ foreach c of local lowcoins {
     local lowgraphs "`lowgraphs' rolling_beta30_60_90_`safe'.gph"
 }
 
-local highgraphs ""
-foreach c of local highcoins {
-    local safe = subinstr("`c'", " ", "_", .)
-    local highgraphs "`highgraphs' rolling_beta30_60_90_`safe'.gph"
-}
 
 graph combine `lowgraphs', cols(4) name(rolling_lowcaps, replace) title("Rolling β (30/60/90d): Low-Cap Cryptos")
 graph save "RollingBeta_LowCap.gph", replace
+graph export "RollingBeta_LowCap.png", replace width(2000) height(1000)
+
 
 graph combine `highgraphs', cols(4) name(rolling_highcaps, replace) title("Rolling β (30/60/90d): High-Cap Cryptos")
 graph save "RollingBeta_HighCap.gph", replace
-
+graph export "RollingBeta_LowCap.png", replace width(2000) height(1000)
 
 
