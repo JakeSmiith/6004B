@@ -1,3 +1,11 @@
+# What variables do I need? 
+Baseline Beta regression - nothing
+Crisis-Dummy Interaction Regression - VIX - Can do some sensitivity analysis between 10-2year differential
+Rolling beta analysis - Shaded recessions, VIX spikes, Fed policy‐shift dates
+Maximum Drawdown (MDD) Comparison - Regress MDD on a vector of crisis‐severity indicators: average VIX, average credit spread, GDP growth shock.
+
+Needs - credit spreads (10-2 year) - Fed policy shift dates, GDP
+
 // Justification of VIX threshold
 import delimited using "C:\Users\jakes\Downloads\VIX_historical.csv", varnames(1) clear
 rename observation_date str_date
