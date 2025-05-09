@@ -7,27 +7,28 @@ Maximum Drawdown (MDD) Comparison - Regress MDD on a vector of crisis‐severity
 Needs - credit spreads (10-2 year) - Fed policy shift dates, GDP
 
 // 1) Import and clean the 10–2yr spread, dropping any duplicate dates
-import delimited using "C:\Users\jakes\Downloads\T10Y2Y.csv", varnames(1) clear
+import delimited using "C:\Users\jakes\Downloads\T10Y2Y.csv", varnames(1) clear stringcols(1)
 rename observation_date str_date
-gen date = date(str_date, "DMY")
-format date %tdNN/DD/CCYY
-drop str_date
-bysort date: keep if _n==1
+gen date = date(str_date, "YMD")
+format date %tdDD/NN/CCYY
 tsset date, daily
-tempfile yields
-save `yields'
+set more off
+list date t10y2y in 1/15
 
 // 2) Import the VIX series
 import delimited using "C:\Users\jakes\Downloads\VIX_historical.csv", varnames(1) clear
 rename observation_date str_date
-gen date = date(str_date, "DMY")
-format date %tdNN/DD/CCYY
-drop str_date
-tsset date, daily
+gen date = date(str_date, "DMY") 
+format date %tdNN/DD/CCYY 
+drop str_date 
+tsset date, daily 
+list date vixcls in 1/15
+
 
 // 3) Merge – now that yields has no duplicates you can do a 1:1 merge
 merge 1:1 date using `yields'
 drop _merge
+list date t10y2y vixcls in 1/15
 
 // 4) Build the top‐decile dummy
 xtile decile = vixcls, nq(10)
