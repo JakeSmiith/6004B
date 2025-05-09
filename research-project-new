@@ -1,0 +1,3 @@
+cd "C:\Users\jakes\Downloads"
+tempfile daily mon quart
+import excel using "VIX_historical.xlsx", sheet("Daily") firstrow clear
