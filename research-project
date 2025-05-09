@@ -6,15 +6,49 @@ Maximum Drawdown (MDD) Comparison - Regress MDD on a vector of crisis‐severity
 
 Needs - credit spreads (10-2 year) - Fed policy shift dates, GDP
 
-// Justification of VIX threshold
+// 1) Import and clean the 10–2yr spread, dropping any duplicate dates
+import delimited using "C:\Users\jakes\Downloads\T10Y2Y.csv", varnames(1) clear
+rename observation_date str_date
+gen date = date(str_date, "DMY")
+format date %tdNN/DD/CCYY
+drop str_date
+bysort date: keep if _n==1
+tsset date, daily
+tempfile yields
+save `yields'
+
+// 2) Import the VIX series
 import delimited using "C:\Users\jakes\Downloads\VIX_historical.csv", varnames(1) clear
 rename observation_date str_date
 gen date = date(str_date, "DMY")
 format date %tdNN/DD/CCYY
 drop str_date
 tsset date, daily
+
+// 3) Merge – now that yields has no duplicates you can do a 1:1 merge
+merge 1:1 date using `yields'
+drop _merge
+
+// 4) Build the top‐decile dummy
 xtile decile = vixcls, nq(10)
 gen crisis10 = decile == 10
 label define cris_lbl2 0 "Normal" 1 "Crisis"
 label values crisis10 cris_lbl2
+
+// 5) Compute the 90th pctile and plot
+quietly sum vixcls, detail
+local p90 = r(p90)
 histogram vixcls, bin(50) normal xline(`p90', lcolor(red) lpattern(dash)) title("VIX Distribution with Top-Decile Cutoff") xtitle("VIX Level") ytitle("Frequency") note("Red line marks the minimum VIX value in the top decile (`=string(`p90',"%9.2f")')")
+
+tempfile master
+save `master', replace
+
+import delimited "C:\Users\jakes\Downloads\GDP.csv", varnames(1) clear
+gen date = date(observation_date, "YMD")
+format date %tdNN/DD/CCYY
+rename gdp GDP
+drop observation_date
+tsset date, daily
+tempfile gdpdata
+save `gdpdata', replace
+list GDP date in 1/15
