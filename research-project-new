@@ -155,6 +155,26 @@ rename b_r_sp beta60_r_wti
 drop b_cons reg_r2 reg_nobs
 list date r_wti r_sp beta60_r_wti in 60/70, clean noobs
 
+local assets r_natgas_d r_corn_d r_wheat_d r_soybean_d r_brent
+foreach a of local assets {
+    display ">>> 60-day rolling beta for `a'"
+    rangestat (reg) `a' r_sp, interval(date -59 0)
+    rename b_r_sp beta60_`a'
+    capture drop b_cons
+    capture drop se_*
+    capture drop t_*
+    capture drop p_*
+    capture drop reg_*
+}
+list date beta60_r_brent beta60_r_natgas_d beta60_r_corn_d beta60_r_wheat_d beta60_r_soybean_d in 60/70, clean noobs
+
+
+
+
+
+
+
+
 
 
 
