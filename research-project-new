@@ -39,16 +39,17 @@ format date %tdNN/DD/CCYY
 tsset date, daily
 tsfill
 ipolate gdp date, gen(gdp_d)
-list date gdp gdp_d in 1/15, clean noobs
+list date gdp gdp_d if inrange(date, td(01jan1990), td(15jan1990)), clean noobs
 save `quart', replace
 
 clear
 use `daily'
-append using `mon'
-append using `quart'
+merge 1:1 date using "`mon'"
+drop _merge
+merge 1:1 date using "`quart'"
 save vix_all_frequencies.dta, replace
 
-list date gdp in 1/15
+list date gdp_d wheat_d in 1/15
 
 use vix_all_frequencies.dta, clear
 encode freq, gen(panel)
