@@ -56,3 +56,36 @@ encode freq, gen(panel)
 xtset panel date
 xtdescribe
 
+xtile decile = vix, nq(10)
+gen crisis10 = decile == 10
+label define cris_lbl2 0 "Normal" 1 "Crisis"
+label values crisis10 cris_lbl2
+
+quietly sum vix, detail
+local p90 = r(p90)
+histogram vix, bin(50) normal xline(`p90', lcolor(red) lpattern(dash)) title("VIX Distribution with Top-Decile Cutoff") xtitle("VIX Level") ytitle("Frequency") note("Red line marks the minimum VIX value in the top decile (`=string(`p90',"%9.2f")')")
+save vix_all_frequencies.dta, replace
+
+foreach x in wti brent natgas corn_d wheat_d soybean_d {
+    gen r_`x' = 100*(ln(`x') - ln(L.`x'))
+}
+drop if _n==1
+summ r_wti r_brent r_natgas r_corn_d r_wheat_d r_soybean_d, detail
+
+import delimited "C:\Users\jakes\Downloads\sp500.csv", varnames(1) clear
+rename date date_str
+gen date = date(date_str, "DMY")
+format date %tdNN/DD/CCYY
+list date_str adjusted_close in 1/15
+drop date_str
+keep date adjusted_close
+rename adjusted_close sp_adjclose
+save "sp_returns.dta", replace
+
+use vix_all_frequencies.dta, clear
+drop _merge
+merge 1:1 date using "sp_returns.dta"
+drop if _merge==1
+drop _merge
+
+
