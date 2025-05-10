@@ -92,9 +92,29 @@ gen r_sp = 100*(ln_sp500 - ln_sp500[_n-1])
 list date sp_adjclose ln_sp500 r_sp in 1/15, clean noobs
 save vix_all_frequencies.dta, replace
 
+sort date
+gen log_natgas_d = ln(natgas_d)
+gen log_corn_d = ln(corn_d)
+gen log_wheat_d = ln(wheat_d)
+gen log_soybean_d = ln(soybean_d)
+gen log_brent = ln(brent)
+gene log_wti = ln(wti)
 
-foreach x in wti brent natgas corn_d wheat_d soybean_d {
-    gen r_`x' = 100*(ln(`x') - ln(L.`x'))
-}
+generate byte bad_log = (natgas_d<=0 | corn_d<=0 | wheat_d<=0 | soybean_d<=0 | brent<=0 | wti<=0)
+list date if bad_log
+list log_corn_d log_soybean_d log_wti date in 1/15
+
+sort date
+gen r_natgas_d  = 100*(log_natgas_d - log_natgas_d[_n-1])
+gen r_corn_d = 100*(log_corn_d - log_corn_d[_n-1])
+gen r_wheat_d = 100*(log_wheat_d - log_wheat_d[_n-1])
+gen r_soybean_d = 100*(log_soybean_d - log_soybean_d[_n-1])
+gen r_brent = 100*(log_brent - log_brent[_n-1])
+gen r_wti = 100*(log_wti - log_wti[_n-1])
 drop if _n==1
-summ r_wti r_brent r_natgas r_corn_d r_wheat_d r_soybean_d, detail
+list date 
+
+
+
+
+
