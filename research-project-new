@@ -12,23 +12,34 @@ rename WTI     wti
 rename BC      brent
 save `daily', replace]
 list date brent in 1/15
+save `daily', replace
 
 import excel using "VIX_historical.xlsx", sheet("Monthly") firstrow clear
-gen date = dofm(mofd(observation_date))
-format date %tdNN/DD/CCYY
 list date WHEAT in 1/15
 rename TB3S    tbill3m
 rename HHNG    natgas
 rename CORN    corn
 rename WHEAT   wheat
 rename SOYBEAN soybean
+gen date = observation_date
+format date %tdNN/DD/CCYY
+tsset date, daily
+tsfill
+ipolate tbill3m   date, gen(tb3m_d)
+ipolate natgas    date, gen(natgas_d)
+ipolate corn      date, gen(corn_d)
+ipolate wheat     date, gen(wheat_d)
+ipolate soybean   date, gen(soybean_d)
+list date tb3m_d natgas_d corn_d wheat_d soybean_d if inrange(date, td(01jan1990), td(15jan1990)), clean noobs
 save `mon', replace
 
 import excel using "VIX_historical.xlsx", sheet("Quarterly") firstrow clear
-gen qidx = qofd(observation_date)
-gen date = dofq(qidx)
+gen date = observation_date
 format date %tdNN/DD/CCYY
-list date gdp in 1/15
+tsset date, daily
+tsfill
+ipolate gdp date, gen(gdp_d)
+list date gdp gdp_d in 1/15, clean noobs
 save `quart', replace
 
 clear
