@@ -84,12 +84,9 @@ save "sp_returns.dta", replace
 
 use vix_all_frequencies.dta, clear
 drop _merge
-merge 1:1 date using "sp_returns.dta"
-drop if _merge==1
+merge 1:1 date using sp_full.dta
 drop _merge
-
 tsset date, daily
 gen ln_sp500 = log(sp_adjclose)
-
-
-
+gen r_sp     = 100*(ln_sp500 - L.ln_sp500)
+save vix_all_frequencies.dta, replace
