@@ -112,8 +112,48 @@ gen r_soybean_d = 100*(log_soybean_d - log_soybean_d[_n-1])
 gen r_brent = 100*(log_brent - log_brent[_n-1])
 gen r_wti = 100*(log_wti - log_wti[_n-1])
 drop if _n==1
-list date 
 
+reg r_brent r_sp, robust
+foreach a in brent wti natgas corn wheat soybean {
+    local ra = "r_`a'"
+    display "=== Regression of `ra' on market ==="
+    reg `ra' r_sp, robust
+}
+
+reg r_brent c.r_sp##i.crisis10, robust
+local assets natgas_d corn_d wheat_d soybean_d brent wti
+foreach a of local assets {
+    di as txt "===== `a' (VIX top-decile crisis) ====="
+    reg r_`a' c.r_sp##i.crisis10, robust
+    di as txt ""
+}
+
+gen crisisGFC   = inrange(date, td(15sep2008), td(9mar2009))
+gen crisisCOVID = inrange(date, td(20feb2020), td(30apr2020))
+label var crisisGFC   "GFC: 15Sep2008–09Mar2009"
+label var crisisCOVID "COVID-19: 20Feb2020–30Apr2020"
+di as txt "=== Brent vs S&P during GFC ==="
+reg  r_brent c.r_sp##i.crisisGFC, robust
+di as txt ""
+di as txt "=== Brent vs S&P during COVID-19 ==="
+reg  r_brent c.r_sp##i.crisisCOVID, robust
+foreach a in brent wti natgas corn wheat soybean {
+    foreach per in GFC COVID {
+        di as txt "=== `a': `per' window ==="
+        reg r_`a' c.r_sp##i.crisis`per', robust
+        di as txt ""
+    }
+}
+save vix_all_frequencies.dta, replace
+
+ssc install rangestat, replace
+use vix_all_frequencies.dta, clear
+tsset date
+display ">>> 60-day rolling beta for WTI"
+rangestat (reg) r_wti r_sp, interval(date -59 0)
+rename b_r_sp beta60_r_wti
+drop b_cons reg_r2 reg_nobs
+list date r_wti r_sp beta60_r_wti in 60/70, clean noobs
 
 
 
