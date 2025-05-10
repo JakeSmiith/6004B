@@ -1,3 +1,46 @@
 cd "C:\Users\jakes\Downloads"
 tempfile daily mon quart
 import excel using "VIX_historical.xlsx", sheet("Daily") firstrow clear
+gen date = observation_date
+format date %tdNN/DD/CCYY
+gen freq = "daily"
+drop observation_date
+rename VIXCLS  vix
+rename T10Y2Y  t10y2y
+rename T10YIE  t10yie
+rename WTI     wti
+rename BC      brent
+save `daily', replace]
+list date brent in 1/15
+
+import excel using "VIX_historical.xlsx", sheet("Monthly") firstrow clear
+gen date = dofm(mofd(observation_date))
+format date %tdNN/DD/CCYY
+list date WHEAT in 1/15
+rename TB3S    tbill3m
+rename HHNG    natgas
+rename CORN    corn
+rename WHEAT   wheat
+rename SOYBEAN soybean
+save `mon', replace
+
+import excel using "VIX_historical.xlsx", sheet("Quarterly") firstrow clear
+gen qidx = qofd(observation_date)
+gen date = dofq(qidx)
+format date %tdNN/DD/CCYY
+list date gdp in 1/15
+save `quart', replace
+
+clear
+use `daily'
+append using `mon'
+append using `quart'
+save vix_all_frequencies.dta, replace
+
+list date gdp in 1/15
+
+use vix_all_frequencies.dta, clear
+encode freq, gen(panel)
+xtset panel date
+xtdescribe
+
