@@ -149,26 +149,200 @@ save vix_all_frequencies.dta, replace
 ssc install rangestat, replace
 use vix_all_frequencies.dta, clear
 tsset date
-display ">>> 60-day rolling beta for WTI"
-rangestat (reg) r_wti r_sp, interval(date -59 0)
+
+tempfile f_wti f_brent f_nat f_corn f_wheat f_soy
+
+//WTI
+preserve
+rangestat (reg) r_wti    r_sp, interval(date -59 0)
+keep date b_r_sp
 rename b_r_sp beta60_r_wti
-drop b_cons reg_r2 reg_nobs
-list date r_wti r_sp beta60_r_wti in 60/70, clean noobs
+save `f_wti', replace
+restore
 
-local assets r_natgas_d r_corn_d r_wheat_d r_soybean_d r_brent
-foreach a of local assets {
-    display ">>> 60-day rolling beta for `a'"
-    rangestat (reg) `a' r_sp, interval(date -59 0)
-    rename b_r_sp beta60_`a'
-    capture drop b_cons
-    capture drop se_*
-    capture drop t_*
-    capture drop p_*
-    capture drop reg_*
-}
-list date beta60_r_brent beta60_r_natgas_d beta60_r_corn_d beta60_r_wheat_d beta60_r_soybean_d in 60/70, clean noobs
+//Brent
+preserve
+rangestat (reg) r_brent r_sp, interval(date -59 0)
+keep date b_r_sp
+rename b_r_sp beta60_r_brent
+save `f_brent', replace
+restore
+
+//Natgas
+preserve
+rangestat (reg) r_natgas r_sp, interval(date -59 0)
+keep date b_r_sp
+rename b_r_sp beta60_r_natgas
+save `f_nat', replace
+restore
+
+//Corn
+preserve
+rangestat (reg) r_corn  r_sp, interval(date -59 0)
+keep date b_r_sp
+rename b_r_sp beta60_r_corn
+save `f_corn', replace
+restore
+
+//Wheat
+preserve
+rangestat (reg) r_wheat r_sp, interval(date -59 0)
+keep date b_r_sp
+rename b_r_sp beta60_r_wheat
+save `f_wheat', replace
+restore
+
+//Soybean
+preserve
+rangestat (reg) r_soybean r_sp, interval(date -59 0)
+keep date b_r_sp
+rename b_r_sp beta60_r_soybean
+save `f_soy', replace
+restore
+
+merge 1:1 date using `f_wti'
+drop _merge
+merge 1:1 date using `f_brent'
+drop _merge
+merge 1:1 date using `f_nat'
+drop _merge
+merge 1:1 date using `f_corn'
+drop _merge
+merge 1:1 date using `f_wheat'
+drop _merge
+merge 1:1 date using `f_soy'
+drop _merge
+
+list date beta60_* in 60/70, clean noobs
+
+tempfile f_wti30 f_brent30 f_nat30 f_corn30 f_wheat30 f_soy30 
+
+// WTI 30-day
+preserve
+  rangestat (reg) r_wti    r_sp, interval(date -29 0)
+  keep date b_r_sp
+  rename b_r_sp beta30_r_wti
+  save `f_wti30', replace
+restore
+
+// Brent 30-day
+preserve
+  rangestat (reg) r_brent  r_sp, interval(date -29 0)
+  keep date b_r_sp
+  rename b_r_sp beta30_r_brent
+  save `f_brent30', replace
+restore
+
+// NatGas 30-day 
+preserve
+  rangestat (reg) r_natgas r_sp, interval(date -29 0)
+  keep date b_r_sp
+  rename b_r_sp beta30_r_natgas
+  save `f_nat30', replace
+restore
+
+// Corn 30-day 
+preserve
+  rangestat (reg) r_corn   r_sp, interval(date -29 0)
+  keep date b_r_sp
+  rename b_r_sp beta30_r_corn
+  save `f_corn30', replace
+restore
+
+// Wheat 30-day 
+preserve
+  rangestat (reg) r_wheat  r_sp, interval(date -29 0)
+  keep date b_r_sp
+  rename b_r_sp beta30_r_wheat
+  save `f_wheat30', replace
+restore
+
+// Soybean 30-day
+preserve
+  rangestat (reg) r_soybean r_sp, interval(date -29 0)
+  keep date b_r_sp
+  rename b_r_sp beta30_r_soybean
+  save `f_soy30', replace
+restore
+
+use vix_all_frequencies.dta, clear
+tsset date
+merge 1:1 date using `f_wti30'
+drop _merge
+merge 1:1 date using `f_brent30'
+drop _merge
+merge 1:1 date using `f_nat30'
+drop _merge
+merge 1:1 date using `f_corn30'
+drop _merge
+merge 1:1 date using `f_wheat30'
+drop _merge
+merge 1:1 date using `f_soy30'
+drop _merge
 
 
+tempfile f_wti120 f_brent120 f_nat120 f_corn120 f_wheat120 f_soy120 
+
+// WTI 120-day 
+preserve
+  rangestat (reg) r_wti    r_sp, interval(date -119 0)
+  keep date b_r_sp
+  rename b_r_sp beta120_r_wti
+  save `f_wti120', replace
+restore
+
+// Brent 120-day 
+preserve
+  rangestat (reg) r_brent  r_sp, interval(date -119 0)
+  keep date b_r_sp
+  rename b_r_sp beta120_r_brent
+  save `f_brent120', replace
+restore
+
+// NatGas 120-day 
+preserve
+  rangestat (reg) r_natgas r_sp, interval(date -119 0)
+  keep date b_r_sp
+  rename b_r_sp beta120_r_natgas
+  save `f_nat120', replace
+restore
+
+// Corn 120-day
+preserve
+  rangestat (reg) r_corn   r_sp, interval(date -119 0)
+  keep date b_r_sp
+  rename b_r_sp beta120_r_corn
+  save `f_corn120', replace
+restore
+
+// Wheat 120-day 
+preserve
+  rangestat (reg) r_wheat  r_sp, interval(date -119 0)
+  keep date b_r_sp
+  rename b_r_sp beta120_r_wheat
+  save `f_wheat120', replace
+restore
+
+// Soybean 120-day 
+preserve
+  rangestat (reg) r_soybean r_sp, interval(date -119 0)
+  keep date b_r_sp
+  rename b_r_sp beta120_r_soybean
+  save `f_soy120', replace
+restore
+
+merge 1:1 date using `f_wti120'
+drop _merge
+merge 1:1 date using `f_brent120'
+drop _merge
+merge 1:1 date using `f_nat120'
+drop _merge
+merge 1:1 date using `f_corn120'
+drop _merge
+merge 1:1 date using `f_wheat120'
+drop _merge
+merge 1:1 date using `f_soy120'
+drop _merge
 
 
 
