@@ -265,8 +265,6 @@ preserve
   save `f_soy30', replace
 restore
 
-use vix_all_frequencies.dta, clear
-tsset date
 merge 1:1 date using `f_wti30'
 drop _merge
 merge 1:1 date using `f_brent30'
@@ -343,6 +341,63 @@ merge 1:1 date using `f_wheat120'
 drop _merge
 merge 1:1 date using `f_soy120'
 drop _merge
+
+save vix_all_frequencies.dta, replace
+
+tsset date
+
+local assets wti brent natgas corn wheat soybean sp
+
+set scheme journal
+use vix_all_frequencies.dta, clear
+tsset date
+local assets wti brent natgas corn wheat soybean sp
+local start30  = td(01feb1990)
+local start60  = td(01mar1990)
+local start120 = td(01may1990)
+local end      = td(31dec2024)
+
+foreach a in `assets' {
+    local Asset = proper("`a'")
+    if "`a'" == "sp" local Asset = "S&P500"
+    twoway line beta30_r_`a' date if date>=`start30', lcolor(red) lwidth(medium) || line beta60_r_`a' date if date>=`start60', lcolor(blue) lwidth(medium) || line beta120_r_`a' date if date>=`start120', lcolor(black) lwidth(medium) yline(1, lpattern(dash) lcolor(red) lwidth(thin)) yscale(range(-3 3)) legend(order(1 "30-day" 2 "60-day" 3 "120-day") cols(1) size(vsmall)) title("Rolling β: `Asset' (30/60/120-day)", size(small)) subtitle("Feb/Mar/May 1990–Dec 2024", size(vsmall) color(gs8)) xtitle("Date", size(vsmall)) ytitle("β", size(vsmall)) xlabel(, format(%tdCY) labsize(vsmall) angle(45) grid) ylabel(-3(1)3, labsize(vsmall) angle(horizontal) grid) graphregion(color(white)) bgcolor(white) name(rolling_`a', replace)
+    graph save rolling_beta30_60_120_`a'.gph, replace
+    graph export rolling_beta30_60_120_`a'.png, replace width(1200)
+}
+
+// natural gas + brent + wti 30
+twoway (line beta30_r_wti    date if date>=`start30', lcolor(red)   lwidth(medium)) (line beta30_r_brent date if date>=`start30', lcolor(blue)  lwidth(medium)) (line beta30_r_natgas date if date>=`start30', lcolor(black) lwidth(medium)), yline(1, lpattern(dash) lcolor(red) lwidth(thin)) yscale(range(-3 3)) legend(order(1 "WTI" 2 "Brent" 3 "NatGas") cols(1) size(vsmall)) title("30-Day Rolling Beta: WTI vs. Brent vs. NatGas", size(small)) subtitle("Feb 1990–Dec 2024", size(vsmall) color(gs8)) xtitle("Date", size(vsmall)) ytitle("Beta", size(vsmall)) xlabel(, format(%tdCY) labsize(vsmall) angle(45) grid) ylabel(-3(1)3, labsize(vsmall) angle(horizontal) grid) graphregion(color(white)) bgcolor(white) name(beta30_wti_brent_natgas, replace)
+graph save beta30_wti_brent_natgas.gph, replace
+
+// soybean, corn wheat 30
+twoway (line beta30_r_soybean date if date>=`start30', lcolor(red)   lwidth(medium)) (line beta30_r_wheat date if date>=`start30', lcolor(blue)  lwidth(medium)) (line beta30_r_corn    date if date>=`start30', lcolor(black) lwidth(medium)), yline(1, lpattern(dash) lcolor(red) lwidth(thin)) yscale(range(-3 3)) legend(order(1 "Soybean" 2 "Wheat" 3 "Corn") cols(1) size(vsmall)) title("30-Day Rolling Beta: Soybean, Wheat & Corn", size(small)) subtitle("Feb 1990–Dec 2024", size(vsmall) color(gs8)) xtitle("Date", size(vsmall)) ytitle("Beta", size(vsmall)) xlabel(, format(%tdCY) labsize(vsmall) angle(45) grid) ylabel(-3(1)3, labsize(vsmall) angle(horizontal) grid) graphregion(color(white)) bgcolor(white) name(beta30_soy_wheat_corn, replace)
+graph save beta30_soy_wheat_corn.gph, replace
+
+//60
+twoway (line beta60_r_wti    date if date>=`start60', lcolor(red)   lwidth(medium)) (line beta60_r_brent date if date>=`start60', lcolor(blue)  lwidth(medium)) (line beta60_r_natgas  date if date>=`start60', lcolor(black) lwidth(medium)), yline(1, lpattern(dash) lcolor(red) lwidth(thin)) yscale(range(-3 3)) legend(order(1 "WTI" 2 "Brent" 3 "NatGas") cols(1) size(vsmall)) title("60-Day Rolling Beta: WTI vs. Brent vs. NatGas", size(small)) subtitle("Mar 1990–Dec 2024", size(vsmall) color(gs8)) xtitle("Date", size(vsmall)) ytitle("Beta", size(vsmall)) xlabel(, format(%tdCY) labsize(vsmall) angle(45) grid) ylabel(-3(1)3, labsize(vsmall)) graphregion(color(white)) bgcolor(white) name(beta60_wti_brent_natgas, replace)
+graph save beta60_wti_brent_natgas.gph, replace
+
+twoway (line beta60_r_soybean date if date>=`start60', lcolor(red)   lwidth(medium)) (line beta60_r_wheat   date if date>=`start60', lcolor(blue)  lwidth(medium)) (line beta60_r_corn    date if date>=`start60', lcolor(black) lwidth(medium)), yline(1, lpattern(dash) lcolor(red) lwidth(thin)) yscale(range(-3 3)) legend(order(1 "Soybean" 2 "Wheat" 3 "Corn") cols(1) size(vsmall)) title("60-Day Rolling Beta: Soybean, Wheat & Corn", size(small)) subtitle("Mar 1990–Dec 2024", size(vsmall) color(gs8)) xtitle("Date", size(vsmall)) ytitle("Beta", size(vsmall)) xlabel(, format(%tdCY) labsize(vsmall) angle(45) grid) ylabel(-3(1)3, labsize(vsmall)) graphregion(color(white)) bgcolor(white) name(beta60_soy_wheat_corn, replace)
+graph save beta60_soy_wheat_corn.gph, replace
+
+//120
+twoway (line beta120_r_wti    date if date>=`start120', lcolor(red)   lwidth(medium)) (line beta120_r_brent date if date>=`start120', lcolor(blue)  lwidth(medium)) (line beta120_r_natgas  date if date>=`start120', lcolor(black) lwidth(medium)), yline(1, lpattern(dash) lcolor(red) lwidth(thin)) yscale(range(-3 3)) legend(order(1 "WTI" 2 "Brent" 3 "NatGas") cols(1) size(vsmall)) title("120-Day Rolling Beta: WTI vs. Brent vs. NatGas", size(small)) subtitle("May 1990–Dec 2024", size(vsmall) color(gs8)) xtitle("Date", size(vsmall)) ytitle("Beta", size(vsmall)) xlabel(, format(%tdCY) labsize(vsmall) angle(45) grid) ylabel(-3(1)3, labsize(vsmall)) graphregion(color(white)) bgcolor(white) name(beta120_wti_brent_natgas, replace)
+graph save beta120_wti_brent_natgas.gph, replace
+
+twoway (line beta120_r_soybean date if date>=`start120', lcolor(red)   lwidth(medium)) (line beta120_r_wheat   date if date>=`start120', lcolor(blue)  lwidth(medium)) (line beta120_r_corn    date if date>=`start120', lcolor(black) lwidth(medium)), yline(1, lpattern(dash) lcolor(red) lwidth(thin)) yscale(range(-3 3)) legend(order(1 "Soybean" 2 "Wheat" 3 "Corn") cols(1) size(vsmall)) title("120-Day Rolling Beta: Soybean, Wheat & Corn", size(small)) subtitle("May 1990–Dec 2024", size(vsmall) color(gs8)) xtitle("Date", size(vsmall)) ytitle("Beta", size(vsmall)) xlabel(, format(%tdCY) labsize(vsmall) angle(45) grid) ylabel(-3(1)3, labsize(vsmall)) graphregion(color(white)) bgcolor(white) name(beta120_soy_wheat_corn, replace)
+graph save beta120_soy_wheat_corn.gph, replace
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
