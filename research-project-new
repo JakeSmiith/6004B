@@ -388,18 +388,47 @@ twoway (line beta120_r_soybean date if date>=`start120', lcolor(red)   lwidth(me
 graph save beta120_soy_wheat_corn.gph, replace
 
 //Shaders applied
-gen shade_hi =  3 if crisis10==1
-gen shade_lo = -3 if crisis10==0
-twoway rarea shade_hi shade_lo date if crisis10==1 & date>=`start30', color(gs12) || line beta30_r_wti date if date>=`start30', lcolor(red) lwidth(medium) title("WTI: 30-Day Rolling Beta (shaded = crisis only)", size(small)) subtitle("Feb 1990–Dec 2024", size(vsmall) color(gs8)) xtitle("Date", size(vsmall)) ytitle("Beta", size(vsmall)) xlabel(, format(%tdCY) labsize(vsmall) angle(45) grid) ylabel(-3(1)3, labsize(vsmall) angle(horizontal) grid) legend(off) name(shade30_wti, replace)
+gen byte GFC   = inrange(date, td(15sep2008), td(9mar2009))
+label var GFC  "Great Financial Crisis"
+gen byte COVID = inrange(date, td(20feb2020), td(30apr2020))
+label var COVID "COVID-19 shock"
 
-gen crisis_period = crisisGFC | crisisCOVID
-gen shade_hi =  3 if crisis_period
-gen shade_lo = -3 if crisis_period
+local suffix    wti brent natgas corn wheat soybean
+local pretty    WTI Brent "Natural gas" Corn Wheat Soybean
+local cutoff    = td(1jan2025)
 
+// Loop for GFC and Covid
+local i = 1
+foreach c of local suffix {
+    local pname : word `i' of `pretty'
+    quietly summarize beta60_r_`c' if date<`cutoff'
+    local ymin = r(min)
+    local ymax = r(max)
+    tempvar shade
+    gen double `shade' = (`ymax' - `ymin') if GFC==1 | COVID==1
 
+    twoway (bar `shade' date if date<`cutoff', barwidth(1) base(`ymin') fcolor(gs12%30)) (line beta60_r_`c' date if date<`cutoff', lcolor(black) lwidth(medium)), scheme(s1color) title("`pname' 60-Day Rolling β", size(medium)) subtitle("Shaded: Great Financial Crisis & COVID-19", size(small)) xtitle("Date", size(small)) ytitle("β₆₀", size(small)) xlabel(, format(%tdCY) angle(45) labsize(vsmall)) ylabel(, grid labsize(vsmall)) yline(1, lpattern(dash) lcolor(red)) legend(off) graphregion(color(white)) plotregion(margin(5 5 5 5)) aspectratio(0.6) name(rolling60_`c', replace)
 
+    local ++i
+}
 
+graph combine rolling60_wti rolling60_brent rolling60_natgas rolling60_corn rolling60_wheat rolling60_soybean, cols(3) xcommon ycommon imargin(zero) title("60-Day Rolling β for Oil, Gas & Grains") subtitle("Shaded: Great Financial Crisis & COVID-19") name(rolling60_all, replace)
 
+//Loop for 90th percentile VIX method
+foreach c of local suffix {
+    local pname : word `i' of `pretty'
+    quietly summarize beta60_r_`c' if date<`cutoff'
+    local ymin = r(min)
+    local ymax = r(max)
+    tempvar shade
+    gen double `shade' = (`ymax'-`ymin') if crisis10==1
+
+    twoway (bar `shade' date if date<`cutoff', barwidth(1) base(`ymin') fcolor(gs12%20)) (line beta60_r_`c' date if date<`cutoff', lcolor(black) lwidth(medium)), scheme(s1color) title("`pname' 60-Day Rolling β", size(medium)) subtitle("Shaded: VIX top decile", size(small)) xtitle("Date", size(small)) ytitle("β₆₀", size(small)) xlabel(, format(%tdCY) angle(45) labsize(vsmall)) ylabel(, grid labsize(vsmall)) yline(1, lpattern(dash) lcolor(red)) legend(off) graphregion(color(white)) plotregion(margin(5 5 5 5)) aspectratio(0.6) name(rolling60_vix_`c', replace)
+
+    local ++i
+}
+
+graph combine rolling60_vix_wti rolling60_vix_brent rolling60_vix_natgas rolling60_vix_corn rolling60_vix_wheat rolling60_vix_soybean, cols(3) xcommon ycommon imargin(zero) title("60-Day Rolling β — VIX Top Decile") subtitle("Shaded: VIX ≥ 90th percentile") name(rolling60_vix_all, replace)
 
 
 
