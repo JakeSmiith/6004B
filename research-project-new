@@ -430,14 +430,61 @@ foreach c of local suffix {
 
 graph combine rolling60_vix_wti rolling60_vix_brent rolling60_vix_natgas rolling60_vix_corn rolling60_vix_wheat rolling60_vix_soybean, cols(3) xcommon ycommon imargin(zero) title("60-Day Rolling β — VIX Top Decile") subtitle("Shaded: VIX ≥ 90th percentile") name(rolling60_vix_all, replace)
 
+/// GARCH
+use vix_all_frequencies.dta, clear
+local assets r_wti r_brent r_natgas_d r_corn_d r_wheat_d r_soybean_d
 
+tempname garch_handle
+postfile `garch_handle' str20 asset double ll double aic double bic using garch_ic.dta, replace
 
+foreach a of local assets {
+    display as text "Estimating Gaussian GARCH(1,1) for `a'"
+    arch `a', arch(1) garch(1) distribution(normal) nocons
+    local ll = e(ll)          
+    local k  = e(df_m)        
+    local n  = e(N)           
+    local aic = `=-2*`ll' + 2*`k''
+    local bic = `=-2*`ll' + ln(`n')*`k''
+    post `handle' ("`a'") (`ll') (`aic') (`bic')
+    display as text ""
+}
 
+local grains r_corn_d r_wheat_d r_soybean_d
+matrix results = J(3,6,.)
+local i = 1
+foreach a of local grains {
+    display as text "Running HAR‐RV regression for `a'  ..."
+    gen rv_`a' = `a'^2
+    rangestat (mean) rv_w=rv_`a', interval(date -4 0)
+    rangestat (mean) rv_m=rv_`a', interval(date -22 0)
+    drop if missing(L.rv_`a') | missing(rv_w) | missing(rv_m)
+    quietly regress rv_`a' L.rv_`a' rv_w rv_m
+    matrix results[`i',1] = _b[L.rv_`a']
+    matrix results[`i',2] = _se[L.rv_`a']
+    matrix results[`i',3] = _b[rv_w]
+    matrix results[`i',4] = _se[rv_w]
+    matrix results[`i',5] = _b[rv_m]
+    matrix results[`i',6] = _se[rv_m]
+    local ++i
+    drop rv_`a' rv_w rv_m
+}
 
+//Graphing
+local vars r_corn_d r_wheat_d r_soybean_d
+local cols navy forest_red maroon
 
+set scheme journal
 
-
-
+local i = 1
+foreach x of local vars {
+    local col : word i' of cols'
+    tsline x', scheme(journal) name(g_x', replace) title("Time Series of x'", size(medium) color(black)) xtitle("Date", size(small) color(black)) ytitle("Return (%)", size(small) color(black)) ylabel(, labsize(vsmall) angle(horizontal) grid) xlabel(, labsize(vsmall) format(%tdCY) angle(45) grid) lcolor(col') lwidth(medium) legend(off) graphregion(color(white)) bgcolor(white)
+    graph save "graph_x'.gph", replace
+    graph export "tsplot_x'.png", name(g_x') replace
+    su x'
+    sktest x'
+    local ++i
+}
 
 
 
