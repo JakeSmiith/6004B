@@ -477,17 +477,90 @@ set scheme journal
 
 local i = 1
 foreach x of local vars {
-    local col : word i' of cols'
-    tsline x', scheme(journal) name(g_x', replace) title("Time Series of x'", size(medium) color(black)) xtitle("Date", size(small) color(black)) ytitle("Return (%)", size(small) color(black)) ylabel(, labsize(vsmall) angle(horizontal) grid) xlabel(, labsize(vsmall) format(%tdCY) angle(45) grid) lcolor(col') lwidth(medium) legend(off) graphregion(color(white)) bgcolor(white)
-    graph save "graph_x'.gph", replace
-    graph export "tsplot_x'.png", name(g_x') replace
-    su x'
-    sktest x'
+    local col : word `i' of `cols'
+
+    tsline `x', scheme(journal) name(g_`x', replace) title("Time Series of `x'", size(medium) color(black)) xtitle("Date", size(small) color(black)) ytitle("Return (%)", size(small) color(black)) ylabel(, labsize(vsmall) angle(horizontal) grid) xlabel(, labsize(vsmall) format(%tdCY) angle(45) grid) lcolor(`col') lwidth(medium) legend(off) graphregion(color(white)) bgcolor(white)
+
+    graph save "graph_`x'.gph", replace
+    graph export "tsplot_`x'.png", name(g_`x') replace
+
+    su `x'
+    sktest `x'
     local ++i
+}
+
+use garch_ic.dta, clear
+putdocx clear
+putdocx begin
+putdocx paragraph
+putdocx text ("Gaussian GARCH(1,1) Information Criteria"), bold
+
+local assets r_wti r_brent r_natgas_d r_corn_d r_wheat_d r_soybean_d
+local n_garch = wordcount("`assets'")
+putdocx table tbl_garch = (`=`n_garch'+1', 4)
+putdocx table tbl_garch(1,1) = ("Asset")
+putdocx table tbl_garch(1,2) = ("Log-Likelihood")
+putdocx table tbl_garch(1,3) = ("AIC")
+putdocx table tbl_garch(1,4) = ("BIC")
+
+*— define the same list you used when you created garch_ic.dta —*
+local glist r_wti r_brent r_natgas_d r_corn_d r_wheat_d r_soybean_d
+
+* start at row 2 (row 1 is your header) */
+local row = 2
+
+foreach a of local glist {
+    * grab the single obs for this asset *
+    quietly su ll  if asset=="`a'", meanonly
+    local llval  = r(mean)
+
+    quietly su aic if asset=="`a'", meanonly
+    local aicval = r(mean)
+
+    quietly su bic if asset=="`a'", meanonly
+    local bicval = r(mean)
+
+    * asset name in col 1 *
+    putdocx table tbl_garch(`row',1) = ("`a'")
+
+    * numeric with formatting in separate format() *
+    putdocx table tbl_garch(`row',2) = (`llval')  format(%9.2f)
+    putdocx table tbl_garch(`row',3) = (`aicval') format(%9.2f)
+    putdocx table tbl_garch(`row',4) = (`bicval') format(%9.2f)
+
+    local ++row
 }
 
 
 
+putdocx paragraph
+putdocx text ("HAR‐RV Model Coefficients for Grains"), bold
+
+* 5b. HAR‐RV Coefficients Table
+matrix define R = results
+local grains r_corn_d r_wheat_d r_soybean_d
+local n_har = rowsof(R)
+putdocx table tbl_har = (`=`n_har'+1', 6)
+putdocx table tbl_har(1,1) = ("Asset")
+putdocx table tbl_har(1,2) = ("β₁-day")
+putdocx table tbl_har(1,3) = ("SE₁-day")
+putdocx table tbl_har(1,4) = ("β₅-day")
+putdocx table tbl_har(1,5) = ("SE₅-day")
+putdocx table tbl_har(1,6) = ("β₂₂-day")
+
+local row = 2
+forvalues i = 1/`n_har' {
+    local a = word(`i', "`grains'")
+    putdocx table tbl_har(`row',1) = ("`a'")
+    putdocx table tbl_har(`row',2) = %6.3f(R[`i',1])
+    putdocx table tbl_har(`row',3) = %6.3f(R[`i',2])
+    putdocx table tbl_har(`row',4) = %6.3f(R[`i',3])
+    putdocx table tbl_har(`row',5) = %6.3f(R[`i',4])
+    putdocx table tbl_har(`row',6) = %6.3f(R[`i',5])
+    local ++row
+}
+
+putdocx save "commodity_volatility_results.docx", replace
 
 
 
