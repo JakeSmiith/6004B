@@ -132,6 +132,7 @@ gen crisisGFC   = inrange(date, td(15sep2008), td(9mar2009))
 gen crisisCOVID = inrange(date, td(20feb2020), td(30apr2020))
 label var crisisGFC   "GFC: 15Sep2008–09Mar2009"
 label var crisisCOVID "COVID-19: 20Feb2020–30Apr2020"
+
 di as txt "=== Brent vs S&P during GFC ==="
 reg  r_brent c.r_sp##i.crisisGFC, robust
 di as txt ""
@@ -151,6 +152,153 @@ use vix_all_frequencies.dta, clear
 tsset date
 
 tempfile f_wti f_brent f_nat f_corn f_wheat f_soy
+
+//Calculating observation number for GFC and Covid19
+sort date
+gen obs_no = _n
+list date obs_no if date == td(15sep2008) | date == td(9mar2009), clean noobs
+list date obs_no if date == td(20feb2020) | date == td(30apr2020), clean noobs
+
+
+//Table output
+
+// Baseline
+mkdir "C:\stata_output"
+cd "C:\stata_output"
+putdocx clear
+putdocx begin
+putdocx paragraph
+putdocx text ("Baseline Regressions: Asset Returns on Market Return"), bold
+foreach a in r_natgas_d r_corn_d r_wheat_d r_soybean_d r_brent r_wti {
+    regress `a' r_sp, robust
+    local shortname = substr("`a'",3,3)
+    putdocx paragraph
+    putdocx text ("Regression of `a' on Market Return"), italic
+    putdocx table tbl_`shortname' = etable
+    putdocx table tbl_`shortname'(1,.), halign(center)
+}
+
+putdocx save "baseline_regressions.docx", replace
+
+// 90th percentile crisis interaction
+mkdir "C:\stata_output"
+cd "C:\stata_output"
+putdocx clear
+putdocx begin
+putdocx paragraph
+putdocx text ("Crisis Regressions: Asset Returns on Market Return × VIX Top Decile"), bold
+local assets natgas_d corn_d wheat_d soybean_d brent wti
+foreach a of local assets {
+    regress r_`a' c.r_sp##i.crisis10, robust
+    local shortname = substr("`a'", 1, 3)
+    putdocx paragraph
+    putdocx text ("Regression of r_`a' on Market Return × Crisis10"), italic
+    putdocx table tblc_`shortname' = etable
+    putdocx table tblc_`shortname'(1,.), halign(center)
+}
+putdocx save "crisis10_regressions.docx", replace
+
+cd "C:\stata_output"
+putdocx clear
+putdocx begin
+
+putdocx paragraph
+putdocx text("GFC Subsample Regressions (15 Sep 2008 – 9 Mar 2009)"), bold
+
+// Reg & Table output for just GFC
+
+// Brent
+reg r_brent r_sp in 4754/4874, robust
+putdocx paragraph
+putdocx text(`"r_brent regressed on r_sp during GFC"`), italic
+putdocx table t1 = etable
+putdocx table t1(1,.), halign(center)
+
+// wti
+reg r_wti r_sp in 4754/4874, robust
+putdocx paragraph
+putdocx text(`"r_wti regressed on r_sp during GFC"`), italic
+putdocx table t2 = etable
+putdocx table t2(1,.), halign(center)
+
+// Natgas
+reg r_natgas r_sp in 4754/4874, robust
+putdocx paragraph
+putdocx text(`"r_natgas regressed on r_sp during GFC"`), italic
+putdocx table t3 = etable
+putdocx table t3(1,.), halign(center)
+
+// Corn
+reg r_corn r_sp in 4754/4874, robust
+putdocx paragraph
+putdocx text(`"r_corn regressed on r_sp during GFC"`), italic
+putdocx table t4 = etable
+putdocx table t4(1,.), halign(center)
+
+// Wheat
+reg r_wheat r_sp in 4754/4874, robust
+putdocx paragraph
+putdocx text(`"r_wheat regressed on r_sp during GFC"`), italic
+putdocx table t5 = etable
+putdocx table t5(1,.), halign(center)
+
+//Soybean
+reg r_soybean r_sp in 4754/4874, robust
+putdocx paragraph
+putdocx text(`"r_soybean regressed on r_sp during GFC"`), italic
+putdocx table t6 = etable
+putdocx table t6(1,.), halign(center)
+putdocx save "gfc_manual_regressions.docx", replace
+
+
+// Covid
+putdocx clear
+putdocx begin
+// Brent
+reg r_brent r_sp in 7647/7695, robust
+putdocx paragraph
+putdocx text(`"r_brent regressed on r_sp during COVID-19"`), italic
+putdocx table t1 = etable
+putdocx table t1(1,.), halign(center)
+
+// wti
+reg r_wti r_sp in 7647/7695, robust
+putdocx paragraph
+putdocx text(`"r_wti regressed on r_sp during COVID-19"`), italic
+putdocx table t2 = etable
+putdocx table t2(1,.), halign(center)
+
+// Natgas
+reg r_natgas r_sp in 7647/7695, robust
+putdocx paragraph
+putdocx text(`"r_natgas regressed on r_sp during COVID-19"`), italic
+putdocx table t3 = etable
+putdocx table t3(1,.), halign(center)
+
+// Corn
+reg r_corn r_sp in 7647/7695, robust
+putdocx paragraph
+putdocx text(`"r_corn regressed on r_sp during COVID-19"`), italic
+putdocx table t4 = etable
+putdocx table t4(1,.), halign(center)
+
+// Wheat
+reg r_wheat r_sp in 7647/7695, robust
+putdocx paragraph
+putdocx text(`"r_wheat regressed on r_sp during COVID-19"`), italic
+putdocx table t5 = etable
+putdocx table t5(1,.), halign(center)
+
+//Soybean
+reg r_soybean r_sp in 7647/7695, robust
+putdocx paragraph
+putdocx text(`"r_soybean regressed on r_sp during COVID-19"`), italic
+putdocx table t6 = etable
+putdocx table t6(1,.), halign(center)
+putdocx save "covid_manual_regressions.docx", replace
+
+
+//Rolling Betas
 
 //WTI
 preserve
@@ -491,4 +639,21 @@ foreach x of local vars {
     local ++i
 }
 
+//Durbin-Watson
+tempname dwstats
+postfile `dwstats' str12 series double d using dwstats.dta, replace
+
+foreach x in r_sp r_brent r_wti r_natgas r_corn r_wheat r_soybean {
+    quietly regress `x'
+    quietly estat dwatson           
+    local d = r(dw)                
+    post `dwstats' ("`x'") (`d')
+}
+
+postclose `dwstats'
+use dwstats.dta, clear
+
+label var series “Return series”
+label var d      “Durbin–Watson d”
+list, noobs clean
 
