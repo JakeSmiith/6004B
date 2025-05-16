@@ -697,170 +697,148 @@ list, noobs clean
 ssc install rangestat, replace
 use vix_all_frequencies.dta, clear
 tsset date
-tempfile f_hedge_wti f_hedge_soy f_hedge_wheat f_hedge_corn f_hedge_natgas f_hedge_brent
-
-//Brent
-preserve
-gen sp_brent = r_sp * r_brent
-gen brent2   = r_brent^2
-rangestat (sum) r_sp r_brent sp_brent brent2 (count) r_sp, interval(date -59 0)
-rename r_sp_sum     sum_sp
-rename r_brent_sum  sum_br
-rename sp_brent_sum sum_spbr
-rename brent2_sum   sum_sq_br
-rename r_sp_count   n_obs
-gen m_sp   = sum_sp   / n_obs
-gen m_br   = sum_br   / n_obs
-gen m_spbr = sum_spbr / n_obs
-gen m_br2  = sum_sq_br/ n_obs
-gen cov_sp_brent = m_spbr - m_sp*m_br
-gen var_brent    = m_br2  - m_br*m_br
-gen hedge_brent60 = cov_sp_brent / var_brent
-keep date hedge_brent60
-save `f_hedge_brent', replace
-restore
+tempfile f_hwti f_hsoy f_hwheat f_hcorn f_hnat f_hbre
 
 // WTI
 preserve
     gen sp_wti        = r_sp * r_wti
     gen wti2          = r_wti^2
-
     rangestat (sum) r_sp r_wti sp_wti wti2 (count) r_sp, interval(date -59 0)
-
     rename r_sp_sum    sum_sp
     rename r_wti_sum   sum_wti
     rename sp_wti_sum  sum_spwti
     rename wti2_sum    sum_sq_wti
     rename r_sp_count  n_obs
-
     gen m_sp        = sum_sp    / n_obs
     gen m_wti       = sum_wti   / n_obs
     gen m_spwti     = sum_spwti / n_obs
     gen m_wti2      = sum_sq_wti/ n_obs
-
     gen cov_sp_wti  = m_spwti - m_sp*m_wti
     gen var_wti     = m_wti2   - m_wti*m_wti
     gen hedge_wti60 = cov_sp_wti / var_wti
-
     keep date hedge_wti60
-    save `f_hedge_wti', replace
+    save `f_hwti', replace
 restore
 
 // Soybean
 preserve
-    gen sp_soybean_d        = r_sp * r_soybean_d
-    gen soybean_d2          = r_soybean_d^2
-
+    gen sp_soybean_d      = r_sp * r_soybean_d
+    gen soybean_d2        = r_soybean_d^2
     rangestat (sum) r_sp r_soybean_d sp_soybean_d soybean_d2 (count) r_sp, interval(date -59 0)
-
     rename r_sp_sum            sum_sp
     rename r_soybean_d_sum     sum_soybean_d
     rename sp_soybean_d_sum    sum_sopsy
     rename soybean_d2_sum      sum_sq_soy
     rename r_sp_count          n_obs
-
-    gen m_sp                = sum_sp        / n_obs
-    gen m_soybean_d         = sum_soybean_d / n_obs
-    gen m_sopsy             = sum_sopsy     / n_obs
-    gen m_soy2              = sum_sq_soy    / n_obs
-
-    gen cov_sp_soybean_d    = m_sopsy - m_sp*m_soybean_d
-    gen var_soybean_d       = m_soy2  - m_soybean_d*m_soybean_d
-    gen hedge_soybean_d60   = cov_sp_soybean_d / var_soybean_d
-
+    gen m_sp              = sum_sp        / n_obs
+    gen m_soybean_d       = sum_soybean_d / n_obs
+    gen m_sopsy           = sum_sopsy     / n_obs
+    gen m_soy2            = sum_sq_soy    / n_obs
+    gen cov_sp_soybean_d  = m_sopsy - m_sp*m_soybean_d
+    gen var_soybean_d     = m_soy2  - m_soybean_d*m_soybean_d
+    gen hedge_soybean_d60 = cov_sp_soybean_d / var_soybean_d
     keep date hedge_soybean_d60
-    save `f_hedge_soy', replace
+    save `f_hsoy', replace
 restore
 
 // Wheat
 preserve
-    gen sp_wheat_d       = r_sp * r_wheat_d
-    gen wheat_d2         = r_wheat_d^2
-
+    gen sp_wheat_d     = r_sp * r_wheat_d
+    gen wheat_d2       = r_wheat_d^2
     rangestat (sum) r_sp r_wheat_d sp_wheat_d wheat_d2 (count) r_sp, interval(date -59 0)
-
     rename r_sp_sum        sum_sp
     rename r_wheat_d_sum   sum_wheat_d
     rename sp_wheat_d_sum  sum_spwheat
     rename wheat_d2_sum    sum_sq_wheat
     rename r_sp_count      n_obs
-
-    gen m_sp              = sum_sp       / n_obs
-    gen m_wheat_d         = sum_wheat_d  / n_obs
-    gen m_spwheat         = sum_spwheat  / n_obs
-    gen m_wheat2          = sum_sq_wheat / n_obs
-
-    gen cov_sp_wheat_d    = m_spwheat - m_sp*m_wheat_d
-    gen var_wheat_d       = m_wheat2  - m_wheat_d*m_wheat_d
-    gen hedge_wheat_d60   = cov_sp_wheat_d / var_wheat_d
-
+    gen m_sp            = sum_sp       / n_obs
+    gen m_wheat_d       = sum_wheat_d  / n_obs
+    gen m_spwheat       = sum_spwheat  / n_obs
+    gen m_wheat2        = sum_sq_wheat / n_obs
+    gen cov_sp_wheat_d  = m_spwheat - m_sp*m_wheat_d
+    gen var_wheat_d     = m_wheat2  - m_wheat_d*m_wheat_d
+    gen hedge_wheat_d60 = cov_sp_wheat_d / var_wheat_d
     keep date hedge_wheat_d60
-    save `f_hedge_wheat', replace
+    save `f_hwheat', replace
 restore
 
 // Corn
 preserve
     gen sp_corn_d      = r_sp * r_corn_d
     gen corn_d2        = r_corn_d^2
-
     rangestat (sum) r_sp r_corn_d sp_corn_d corn_d2 (count) r_sp, interval(date -59 0)
-
     rename r_sp_sum       sum_sp
     rename r_corn_d_sum   sum_corn_d
     rename sp_corn_d_sum  sum_spcorn
     rename corn_d2_sum    sum_sq_corn
     rename r_sp_count     n_obs
-
-    gen m_sp            = sum_sp      / n_obs
-    gen m_corn_d        = sum_corn_d  / n_obs
-    gen m_spcorn        = sum_spcorn  / n_obs
-    gen m_corn2         = sum_sq_corn / n_obs
-
-    gen cov_sp_corn_d   = m_spcorn - m_sp*m_corn_d
-    gen var_corn_d      = m_corn2  - m_corn_d*m_corn_d
-    gen hedge_corn_d60  = cov_sp_corn_d / var_corn_d
-
+    gen m_sp           = sum_sp      / n_obs
+    gen m_corn_d       = sum_corn_d  / n_obs
+    gen m_spcorn       = sum_spcorn  / n_obs
+    gen m_corn2        = sum_sq_corn / n_obs
+    gen cov_sp_corn_d  = m_spcorn - m_sp*m_corn_d
+    gen var_corn_d     = m_corn2  - m_corn_d*m_corn_d
+    gen hedge_corn_d60 = cov_sp_corn_d / var_corn_d
     keep date hedge_corn_d60
-    save `f_hedge_corn', replace
+    save `f_hcorn', replace
 restore
 
 // NatGas
 preserve
     gen sp_natgas_d    = r_sp * r_natgas_d
     gen natgas_d2      = r_natgas_d^2
-
     rangestat (sum) r_sp r_natgas_d sp_natgas_d natgas_d2 (count) r_sp, interval(date -59 0)
-
     rename r_sp_sum        sum_sp
     rename r_natgas_d_sum  sum_natgas_d
     rename sp_natgas_d_sum sum_spnat
     rename natgas_d2_sum   sum_sq_nat
     rename r_sp_count      n_obs
-
-    gen m_sp             = sum_sp       / n_obs
-    gen m_natgas_d       = sum_natgas_d / n_obs
-    gen m_spnat          = sum_spnat    / n_obs
-    gen m_natgas2        = sum_sq_nat   / n_obs
-
-    gen cov_sp_natgas_d  = m_spnat - m_sp*m_natgas_d
-    gen var_natgas_d     = m_natgas2 - m_natgas_d*m_natgas_d
+    gen m_sp            = sum_sp       / n_obs
+    gen m_natgas_d      = sum_natgas_d / n_obs
+    gen m_spnat         = sum_spnat    / n_obs
+    gen m_natgas2       = sum_sq_nat   / n_obs
+    gen cov_sp_natgas_d = m_spnat - m_sp*m_natgas_d
+    gen var_natgas_d    = m_natgas2 - m_natgas_d*m_natgas_d
     gen hedge_natgas_d60 = cov_sp_natgas_d / var_natgas_d
-
     keep date hedge_natgas_d60
-    save `f_hedge_natgas', replace
+    save `f_hnat', replace
 restore
 
-merge 1:1 date using `f_hedge_brent
-drop_merge
-merge 1:1 date using `f_hedge_wti'
+// Brent
+preserve
+    gen sp_brent       = r_sp * r_brent
+    gen brent2         = r_brent^2
+    rangestat (sum) r_sp r_brent sp_brent brent2 (count) r_sp, interval(date -59 0)
+    rename r_sp_sum       sum_sp
+    rename r_brent_sum    sum_brent
+    rename sp_brent_sum   sum_spbre
+    rename brent2_sum     sum_sq_bre
+    rename r_sp_count     n_obs
+    gen m_sp            = sum_sp       / n_obs
+    gen m_brent         = sum_brent    / n_obs
+    gen m_spbre         = sum_spbre    / n_obs
+    gen m_bre2          = sum_sq_bre   / n_obs
+    gen cov_sp_brent    = m_spbre - m_sp*m_brent
+    gen var_brent       = m_bre2  - m_brent*m_brent
+    gen hedge_brent60   = cov_sp_brent / var_brent
+    keep date hedge_brent60
+    save `f_hbre', replace
+restore
+
+use vix_all_frequencies.dta, clear
+tsset date
+
+merge 1:1 date using `f_hwti'
 drop _merge
-merge 1:1 date using `f_hedge_soy'
+merge 1:1 date using `f_hsoy'
 drop _merge
-merge 1:1 date using `f_hedge_wheat'
+merge 1:1 date using `f_hwheat'
 drop _merge
-merge 1:1 date using `f_hedge_corn'
+merge 1:1 date using `f_hcorn'
 drop _merge
-merge 1:1 date using `f_hedge_natgas'
+merge 1:1 date using `f_hnat'
+drop _merge
+merge 1:1 date using `f_hbre'
 drop _merge
 
-list date hedge_wti60 hedge_brent60 hedge_soybean_d60 hedge_wheat_d60 hedge_corn_d60 hedge_natgas_d60 in 200/205, clean noobs
+list date r_sp r_brent hedge_brent60 in 200/205, clean noobs
