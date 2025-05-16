@@ -159,6 +159,12 @@ tsset date
 
 tempfile f_wti f_brent f_nat f_corn f_wheat f_soy
 
+//Calculating observation number for GFC and Covid19
+sort date
+gen obs_no = _n
+list date obs_no if date == td(15sep2008) | date == td(9mar2009), clean noobs
+list date obs_no if date == td(20feb2020) | date == td(30apr2020), clean noobs
+
 //Just GFC
 reg r_brent r_sp in 4754/4874, robust
 eststo r_brent
@@ -177,13 +183,17 @@ foreach a in wti natgas corn wheat soybean {
 }
 esttab r_brent r_wti r_natgas r_corn r_wheat r_soybean using covid_subsample_regressions.rtf, replace se star(* 0.10 ** 0.05 *** 0.01) label b(3) se(3) title("COVID Subsample Regressions: Asset Returns on Market Return (Feb–Apr 2020)") mtitles("Brent" "WTI" "Natural Gas" "Corn" "Wheat" "Soybean") coeflabels(r_sp "Market Return") keep(r_sp) compress nonumbers addnotes("Sample: Obs 7647–7695 (COVID Window)", "Robust standard errors in parentheses.", "Significance: * p<0.10; ** p<0.05; *** p<0.01")
 
-
-//Calculating observation number for GFC and Covid19
-sort date
-gen obs_no = _n
-list date obs_no if date == td(15sep2008) | date == td(9mar2009), clean noobs
-list date obs_no if date == td(20feb2020) | date == td(30apr2020), clean noobs
-
+// GFC + Covid
+gen combined_crisis_sample = 0
+replace combined_crisis_sample = 1 if inrange(_n, 4754, 4874)
+replace combined_crisis_sample = 1 if inrange(_n, 7647, 7695)
+reg r_brent r_sp if combined_crisis_sample == 1, robust
+eststo r_brent
+foreach a in wti natgas corn wheat soybean {
+    reg r_`a' r_sp if combined_crisis_sample == 1, robust
+    eststo r_`a'
+}
+esttab r_brent r_wti r_natgas r_corn r_wheat r_soybean using crisis_sample_subsample_regressions.rtf, replace se star(* 0.10 ** 0.05 *** 0.01) label b(3) se(3) title("Crisis Subsample Regressions: Asset Returns on Market Return (GFC + COVID)") mtitles("Brent" "WTI" "Natural Gas" "Corn" "Wheat" "Soybean") coeflabels(r_sp "Market Return") keep(r_sp) compress nonumbers addnotes("Sample: Obs 4754–4874 (GFC) and 7647–7695 (COVID)", "Robust standard errors in parentheses.", "Significance: * p<0.10; ** p<0.05; *** p<0.01")
 
 //Full table output
 
