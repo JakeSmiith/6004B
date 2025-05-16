@@ -842,3 +842,36 @@ merge 1:1 date using `f_hbre'
 drop _merge
 
 list date r_sp r_brent hedge_brent60 in 200/205, clean noobs
+
+//Graphing
+gen hedge_brent60_trunc     = cond(hedge_brent60     > 3, 3, cond(hedge_brent60     < -3, -3, hedge_brent60))
+gen hedge_wti60_trunc       = cond(hedge_wti60       > 3, 3, cond(hedge_wti60       < -3, -3, hedge_wti60))
+gen hedge_natgas_d60_trunc  = cond(date >= td(01jan1997), cond(hedge_natgas_d60 > 3, 3, cond(hedge_natgas_d60 < -3, -3, hedge_natgas_d60)), .)
+gen hedge_corn_d60_trunc    = cond(hedge_corn_d60    > 3, 3, cond(hedge_corn_d60    < -3, -3, hedge_corn_d60))
+gen hedge_soybean_d60_trunc = cond(hedge_soybean_d60 > 3, 3, cond(hedge_soybean_d60 < -3, -3, hedge_soybean_d60))
+gen hedge_wheat_d60_trunc   = cond(hedge_wheat_d60   > 3, 3, cond(hedge_wheat_d60   < -3, -3, hedge_wheat_d60))
+
+twoway (line hedge_brent60_trunc date, lcolor(blue) lwidth(medium)) (line hedge_wti60_trunc date, lcolor(red) lwidth(medium)) (line hedge_natgas_d60_trunc date, lcolor(green) lwidth(medium)), title("60-Day Rolling Hedge Ratios: Oil & Gas", size(medsmall)) subtitle("1990–2024", size(vsmall) color(gs8)) ytitle("Hedge Ratio", size(small)) xtitle("Date", size(small)) xlabel(, format(%tdCY) labsize(vsmall) angle(45) grid) ylabel(-3(1)3, labsize(vsmall) grid) yscale(range(-3 3) noextend) legend(order(1 "Brent" 2 "WTI" 3 "NatGas") size(vsmall) cols(1) ring(0) pos(1)) yline(0, lcolor(gs12) lpattern(dash)) graphregion(color(white) lcolor(black) lwidth(thin)) plotregion(margin(5 5 5 5)) bgcolor(white) scheme(s1color) name(hedge_ratio_overlay_oilgas_t3, replace)
+graph save hedge_ratio_overlay_oilgas_t3.gph, replace
+graph export hedge_ratio_overlay_oilgas_t3.png, replace width(1800)
+
+twoway (line hedge_corn_d60_trunc date, lcolor(black) lwidth(medium)) (line hedge_soybean_d60_trunc date, lcolor(dkorange) lwidth(medium)) (line hedge_wheat_d60_trunc date, lcolor(maroon) lwidth(medium)), title("60-Day Rolling Hedge Ratios: Grains", size(medsmall)) subtitle("1990–2024", size(vsmall) color(gs8)) ytitle("Hedge Ratio", size(small)) xtitle("Date", size(small)) xlabel(, format(%tdCY) labsize(vsmall) angle(45) grid) ylabel(-3(1)3, labsize(vsmall) grid) yscale(range(-3 3) noextend) legend(order(1 "Corn" 2 "Soybean" 3 "Wheat") size(vsmall) cols(1) ring(0) pos(1)) yline(0, lcolor(gs12) lpattern(dash)) graphregion(color(white) lcolor(black) lwidth(thin)) plotregion(margin(5 5 5 5)) bgcolor(white) scheme(s1color) name(hedge_ratio_overlay_grains_t3, replace)
+graph save hedge_ratio_overlay_grains_t3.gph, replace
+graph export hedge_ratio_overlay_grains_t3.png, replace width(1800)
+
+gen hedge_corn_d60_t10    = cond(hedge_corn_d60 > 10, 10, cond(hedge_corn_d60 < -10, -10, hedge_corn_d60))
+gen hedge_soybean_d60_t10 = cond(hedge_soybean_d60 > 10, 10, cond(hedge_soybean_d60 < -10, -10, hedge_soybean_d60))
+gen hedge_wheat_d60_t10   = cond(hedge_wheat_d60 > 10, 10, cond(hedge_wheat_d60 < -10, -10, hedge_wheat_d60))
+
+twoway (line hedge_corn_d60_t10 date, lcolor(black) lwidth(medium)), title("60-Day Hedge Ratio (±10): Corn", size(medsmall)) subtitle("1990–2024", size(vsmall) color(gs8)) ytitle("Hedge Ratio", size(small)) xtitle("Date", size(small)) xlabel(, format(%tdCY) labsize(vsmall) angle(45) grid) ylabel(-10(5)10, labsize(vsmall) grid) yline(0, lcolor(gs12) lpattern(dash)) legend(off) graphregion(color(white) lcolor(black) lwidth(thin)) plotregion(margin(5 5 5 5)) bgcolor(white) scheme(s1color) name(hedge_ratio_corn_t10, replace)
+graph save hedge_ratio_corn_t10.gph, replace
+graph export hedge_ratio_corn_t10.png, replace width(1800)
+
+twoway (line hedge_soybean_d60_t10 date, lcolor(dkorange) lwidth(medium)), title("60-Day Hedge Ratio (±10): Soybean", size(medsmall)) subtitle("1990–2024", size(vsmall) color(gs8)) ytitle("Hedge Ratio", size(small)) xtitle("Date", size(small)) xlabel(, format(%tdCY) labsize(vsmall) angle(45) grid) ylabel(-10(5)10, labsize(vsmall) grid) yline(0, lcolor(gs12) lpattern(dash)) legend(off) graphregion(color(white) lcolor(black) lwidth(thin)) plotregion(margin(5 5 5 5)) bgcolor(white) scheme(s1color) name(hedge_ratio_soybean_t10, replace)
+graph save hedge_ratio_soybean_t10.gph, replace
+graph export hedge_ratio_soybean_t10.png, replace width(1800)
+
+twoway (line hedge_wheat_d60_t10 date, lcolor(maroon) lwidth(medium)), title("60-Day Hedge Ratio (±10): Wheat", size(medsmall)) subtitle("1990–2024", size(vsmall) color(gs8)) ytitle("Hedge Ratio", size(small)) xtitle("Date", size(small)) xlabel(, format(%tdCY) labsize(vsmall) angle(45) grid) ylabel(-10(5)10, labsize(vsmall) grid) yline(0, lcolor(gs12) lpattern(dash)) legend(off) graphregion(color(white) lcolor(black) lwidth(thin)) plotregion(margin(5 5 5 5)) bgcolor(white) scheme(s1color) name(hedge_ratio_wheat_t10, replace)
+graph save hedge_ratio_wheat_t10.gph, replace
+graph export hedge_ratio_wheat_t10.png, replace width(1800)
+
