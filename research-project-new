@@ -113,20 +113,26 @@ gen r_brent = 100*(log_brent - log_brent[_n-1])
 gen r_wti = 100*(log_wti - log_wti[_n-1])
 drop if _n==1
 
+ssc install estout, replace
+eststo clear
+cd "C:\stata_output"
 reg r_brent r_sp, robust
-foreach a in brent wti natgas corn wheat soybean {
-    local ra = "r_`a'"
-    display "=== Regression of `ra' on market ==="
-    reg `ra' r_sp, robust
+eststo r_brent
+foreach a in wti natgas corn wheat soybean {
+    reg r_`a' r_sp, robust
+    eststo r_`a'
 }
+esttab r_brent r_wti r_natgas r_corn r_wheat r_soybean using market_regressions.rtf, replace se star(* 0.10 ** 0.05 *** 0.01) label b(3) se(3) title("Baseline Regressions: Asset Returns on Market Return") mtitles("Brent" "WTI" "Natural Gas" "Corn" "Wheat" "Soybean") coeflabels(r_sp "Market Return") keep(r_sp) compress nonumbers addnotes("Robust standard errors in parentheses." "Significance: * p<0.10; ** p<0.05; *** p<0.01")
 
 reg r_brent c.r_sp##i.crisis10, robust
+eststo r_brent
 local assets natgas_d corn_d wheat_d soybean_d brent wti
 foreach a of local assets {
-    di as txt "===== `a' (VIX top-decile crisis) ====="
     reg r_`a' c.r_sp##i.crisis10, robust
-    di as txt ""
+    eststo `a'
 }
+esttab natgas_d corn_d wheat_d soybean_d brent wti using crisis_interaction_regressions.rtf, replace se star(* 0.10 ** 0.05 *** 0.01) label b(3) se(3) title("Interaction Regressions: Asset Returns × VIX Top-Decile Crisis") mtitles("NatGas" "Corn" "Wheat" "Soybean" "Brent" "WTI") coeflabels(1.r_sp "Market (Normal)" 1.crisis10 "Crisis" r_sp#1.crisis10 "Market × Crisis") compress nonumbers addnotes("Robust standard errors in parentheses." "Significance: * p<0.10; ** p<0.05; *** p<0.01")
+
 
 gen crisisGFC   = inrange(date, td(15sep2008), td(9mar2009))
 gen crisisCOVID = inrange(date, td(20feb2020), td(30apr2020))
@@ -153,6 +159,25 @@ tsset date
 
 tempfile f_wti f_brent f_nat f_corn f_wheat f_soy
 
+//Just GFC
+reg r_brent r_sp in 4754/4874, robust
+eststo r_brent
+foreach a in wti natgas corn wheat soybean {
+    reg r_`a' r_sp in 4754/4874, robust
+    eststo r_`a'
+}
+esttab r_brent r_wti r_natgas r_corn r_wheat r_soybean using gfc_subsample_regressions.rtf, replace se star(* 0.10 ** 0.05 *** 0.01) label b(3) se(3) title("GFC Subsample Regressions: Asset Returns on Market Return (Sep 2008–Mar 2009)") mtitles("Brent" "WTI" "Natural Gas" "Corn" "Wheat" "Soybean") coeflabels(r_sp "Market Return") keep(r_sp) compress nonumbers addnotes("Sample: Obs 4754–4874 (GFC Window)", "Robust standard errors in parentheses.", "Significance: * p<0.10; ** p<0.05; *** p<0.01")
+
+// Just Covid
+reg r_brent r_sp in 7647/7695, robust
+eststo r_brent
+foreach a in wti natgas corn wheat soybean {
+    reg r_`a' r_sp in 7647/7695, robust
+    eststo r_`a'
+}
+esttab r_brent r_wti r_natgas r_corn r_wheat r_soybean using covid_subsample_regressions.rtf, replace se star(* 0.10 ** 0.05 *** 0.01) label b(3) se(3) title("COVID Subsample Regressions: Asset Returns on Market Return (Feb–Apr 2020)") mtitles("Brent" "WTI" "Natural Gas" "Corn" "Wheat" "Soybean") coeflabels(r_sp "Market Return") keep(r_sp) compress nonumbers addnotes("Sample: Obs 7647–7695 (COVID Window)", "Robust standard errors in parentheses.", "Significance: * p<0.10; ** p<0.05; *** p<0.01")
+
+
 //Calculating observation number for GFC and Covid19
 sort date
 gen obs_no = _n
@@ -160,7 +185,7 @@ list date obs_no if date == td(15sep2008) | date == td(9mar2009), clean noobs
 list date obs_no if date == td(20feb2020) | date == td(30apr2020), clean noobs
 
 
-//Table output
+//Full table output
 
 // Baseline
 mkdir "C:\stata_output"
