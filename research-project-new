@@ -875,3 +875,4 @@ twoway (line hedge_wheat_d60_t10 date, lcolor(maroon) lwidth(medium)), title("60
 graph save hedge_ratio_wheat_t10.gph, replace
 graph export hedge_ratio_wheat_t10.png, replace width(1800)
 
+// AR(1) regressions + Newey SE to protect us from serial correlation. 
