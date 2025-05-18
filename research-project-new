@@ -1,149 +1,316 @@
+// Set working directory to where your Excel file lives.
 cd "C:\Users\jakes\Downloads"
+// Declare three temporary filenames (`daily`, `mon`, `quart`) for intermediate saves.
 tempfile daily mon quart
+// Import the “Daily” sheet from the Excel file, using the first row as variable names and clearing any data in memory.
 import excel using "VIX_historical.xlsx", sheet("Daily") firstrow clear
+// Create a new variable `date` by copying the raw `observation_date`.
 gen date = observation_date
+// Format `date` as MM/DD/YYYY for readability.
 format date %tdNN/DD/CCYY
+// Generate a string variable `freq` tagging every observation as “daily.”
 gen freq = "daily"
+// Drop the original unformatted `observation_date` variable to avoid duplication.
 drop observation_date
-rename VIXCLS  vix
-rename T10Y2Y  t10y2y
-rename T10YIE  t10yie
-rename WTI     wti
-rename BC      brent
+// Rename the VIX closing series from `VIXCLS` to `vix`.
+rename VIXCLS vix
+// Rename the 10-Year minus 2-Year Treasury spread from `T10Y2Y` to `t10y2y`.
+rename T10Y2Y t10y2y
+// Rename the 10-Year implied equity volatility from `T10YIE` to `t10yie`.
+rename T10YIE t10yie
+// Rename WTI oil price from `WTI` to `wti`.
+rename WTI wti
+// Rename Brent oil price from `BC` to `brent`.
+rename BC brent
+// Declare the dataset as a daily time series keyed by `date`.
 tsset date, daily
+// Save this processed daily dataset to the temporary file `daily`, overwriting if it exists.
 save `daily', replace
+// List the first 15 observations of `date` and `brent` to verify import went correctly.
 list date brent in 1/15
+// Re-save the daily dataset (no changes since last save, but ensures persistence).
 save `daily', replace
-
+// Import the “Monthly” sheet from the same Excel file, clearing out the existing data.
 import excel using "VIX_historical.xlsx", sheet("Monthly") firstrow clear
+// Rename the raw `observation_date` to `date` for consistency.
 rename observation_date date
+// List the first 15 observations of `date` and `WHEAT` to check the import.
 list date WHEAT in 1/15
-rename TB3S    tbill3m
-rename HHNG    natgas
-rename CORN    corn
-rename WHEAT   wheat
+// Rename the 3-month Treasury bill rate from `TB3S` to `tbill3m`.
+rename TB3S tbill3m
+// Rename the Henry Hub natural gas price from `HHNG` to `natgas`.
+rename HHNG natgas
+// Rename the corn price series from `CORN` to `corn`.
+rename CORN corn
+// Rename the wheat price series from `WHEAT` to `wheat`.
+rename WHEAT wheat
+// Rename the soybean price series from `SOYBEAN` to `soybean`.
 rename SOYBEAN soybean
+// (If not already done) copy `observation_date` again into `date` for formatting.
 gen date = observation_date
+// Format `date` as MM/DD/YYYY.
 format date %tdNN/DD/CCYY
+// Declare this dataset as a daily time series so we can fill in gaps.
 tsset date, daily
+// Fill in all missing calendar days between the first and last dates.
 tsfill
-ipolate tbill3m   date, gen(tb3m_d)
-ipolate natgas    date, gen(natgas_d)
-ipolate corn      date, gen(corn_d)
-ipolate wheat     date, gen(wheat_d)
-ipolate soybean   date, gen(soybean_d)
+// Linearly interpolate the `tbill3m` series to daily frequency, storing in `tb3m_d`.
+ipolate tbill3m date, gen(tb3m_d)
+// Interpolate the `natgas` series to daily, storing in `natgas_d`.
+ipolate natgas date, gen(natgas_d)
+// Interpolate the `corn` series to daily, storing in `corn_d`.
+ipolate corn date, gen(corn_d)
+// Interpolate the `wheat` series to daily, storing in `wheat_d`.
+ipolate wheat date, gen(wheat_d)
+// Interpolate the `soybean` series to daily, storing in `soybean_d`.
+ipolate soybean date, gen(soybean_d)
+// List interpolated values for Jan 1–15, 1990, to confirm the interpolation worked.
 list date tb3m_d natgas_d corn_d wheat_d soybean_d if inrange(date, td(01jan1990), td(15jan1990)), clean noobs
+// Save the final interpolated dataset to the temporary file `mon`, overwriting if necessary.
 save `mon', replace
 
+// Import the “Quarterly” sheet from the Excel file, using the first row as variable names and clearing any existing data.
 import excel using "VIX_historical.xlsx", sheet("Quarterly") firstrow clear
+// Create a new variable `date` by copying the raw `observation_date`.
 gen date = observation_date
+// Format `date` as MM/DD/YYYY for readability.
 format date %tdNN/DD/CCYY
+// Declare this dataset as a daily time series so we can fill in gaps.
 tsset date, daily
+// Fill in all missing calendar days between the first and last dates.
 tsfill
+// Linearly interpolate the quarterly `gdp` series to daily frequency, storing in `gdp_d`.
 ipolate gdp date, gen(gdp_d)
+// List `date`, original `gdp`, and interpolated `gdp_d` for Jan 1–15, 1990, to confirm interpolation.
 list date gdp gdp_d if inrange(date, td(01jan1990), td(15jan1990)), clean noobs
+// Save the interpolated quarterly dataset to the temporary file `quart`, overwriting if necessary.
 save `quart', replace
-
+// Clear the current data from memory.
 clear
+// Load the daily dataset saved earlier.
 use `daily'
+// Merge in the interpolated monthly data, one‐to‐one on `date`.
 merge 1:1 date using "`mon'"
+// Drop the merge indicator `_merge` (all matched by design).
 drop _merge
+// Merge in the interpolated quarterly data, one‐to‐one on `date`.
 merge 1:1 date using "`quart'"
+// Save the combined all‐frequencies dataset to disk.
 save vix_all_frequencies.dta, replace
-
+// List the first 15 observations of `date`, `gdp_d`, and `wheat_d` to verify the final merge.
 list date gdp_d wheat_d in 1/15
-
+// Reload the combined dataset.
 use vix_all_frequencies.dta, clear
+// Convert the string `freq` into a numeric `panel` identifier.
 encode freq, gen(panel)
+// Declare the data as a panel with `panel` units and time variable `date`.
 xtset panel date
+// Describe the panel structure (number of panels, time spans, gaps).
 xtdescribe
-
+// Create 10 equally-sized groups (deciles) of the VIX distribution.
 xtile decile = vix, nq(10)
+// Generate a binary flag `crisis10` for observations in the top (10th) decile of VIX.
 gen crisis10 = decile == 10
+// Define value labels for `crisis10`: 0 = "Normal", 1 = "Crisis".
 label define cris_lbl2 0 "Normal" 1 "Crisis"
 label values crisis10 cris_lbl2
-
+// Silently compute detailed summary statistics for `vix`, storing the 90th percentile.
 quietly sum vix, detail
 local p90 = r(p90)
-histogram vix, bin(50) normal xline(`p90', lcolor(red) lpattern(dash)) title("VIX Distribution with Top-Decile Cutoff") xtitle("VIX Level") ytitle("Frequency") note("Red line marks the minimum VIX value in the top decile (`=string(`p90',"%9.2f")')")
+// Plot a histogram of VIX (50 bins), overlay a normal curve, and draw a red dashed line at the 90th-percentile cutoff.
+histogram vix, bin(50) normal xline(`p90', lcolor(red) lpattern(dash)) title("VIX Distribution with Top-Decile Cutoff") xtitle("VIX Level") ytitle("Frequency") note("Red line marks the minimum VIX value in the top decile (`=string(`p90',\"%9.2f\")')")
+// Save the fully processed dataset, including deciles and crisis flag.
 save vix_all_frequencies.dta, replace
 
+// Import the S&P 500 CSV file, using the first row for variable names and clearing any existing data.
 import delimited "C:\Users\jakes\Downloads\sp500.csv", varnames(1) clear
+// Rename the imported date string variable to date_str.
 rename date date_str
+// Create a proper Stata date variable by parsing date_str in DMY format.
 gen date = date(date_str, "DMY")
+// Format the new date variable as MM/DD/YYYY.
 format date %tdNN/DD/CCYY
+// Display the first 15 observations of date_str and adjusted_close to verify import.
 list date_str adjusted_close in 1/15
+// Drop the original date_str now that we have a proper date.
 drop date_str
+// Keep only the date and adjusted_close variables.
 keep date adjusted_close
+// Rename adjusted_close to sp_adjclose for clarity.
 rename adjusted_close sp_adjclose
+// Save this dataset of S&P 500 adjusted closes to disk.
 save "sp_returns.dta", replace
-
+// Load the combined VIX/frequencies data.
 use vix_all_frequencies.dta, clear
+// Remove any leftover merge indicator.
 drop _merge
+// Merge in the full S&P 500 series one‐to‐one on date.
 merge 1:1 date using sp_full.dta
+// Drop the merge indicator again.
 drop _merge
+// Declare the merged data as a daily time series by date.
 tsset date, daily
+// Drop any days where Brent is missing to ensure balanced data.
 drop if missing(brent)
+// List the first 15 observations of brent, soybean_d, gdp_d, and date to confirm the merge.
 list brent soybean_d gdp_d date in 1/15
-
+// Sort observations by date for time‐series calculations.
 sort date
+// Compute the log of the S&P 500 adjusted close.
 gen ln_sp500 = log(sp_adjclose)
+// Compute the daily S&P 500 return in percentage points.
 gen r_sp = 100*(ln_sp500 - ln_sp500[_n-1])
+// List the first 15 observations of date, sp_adjclose, ln_sp500, and r_sp (no obs #).
 list date sp_adjclose ln_sp500 r_sp in 1/15, clean noobs
+// Save the updated VIX/frequencies dataset with market returns included.
 save vix_all_frequencies.dta, replace
-
+// Sort by date again before computing logs of commodity series.
 sort date
+// Generate logs of daily interpolated commodity and oil series.
 gen log_natgas_d = ln(natgas_d)
-gen log_corn_d = ln(corn_d)
-gen log_wheat_d = ln(wheat_d)
-gen log_soybean_d = ln(soybean_d)
-gen log_brent = ln(brent)
-gene log_wti = ln(wti)
-
+gen log_corn_d   = ln(corn_d)
+gen log_wheat_d  = ln(wheat_d)
+gen log_soybean_d= ln(soybean_d)
+gen log_brent    = ln(brent)
+gene log_wti     = ln(wti)      // matches original 'gene' command; typically 'gen'
+// Flag any non‐positive values before logging (to catch errors).
 generate byte bad_log = (natgas_d<=0 | corn_d<=0 | wheat_d<=0 | soybean_d<=0 | brent<=0 | wti<=0)
+// List dates where bad_log is true to inspect problematic data points.
 list date if bad_log
-list log_corn_d log_soybean_d log_wti date in 1/15
-
+// Preview the first 15 logged values of corn, soybean, and WTI.
+l/ist log_corn_d log_soybean_d log_wti date in 1/15
+/ Sort by date before computing daily commodity returns.
 sort date
-gen r_natgas_d  = 100*(log_natgas_d - log_natgas_d[_n-1])
-gen r_corn_d = 100*(log_corn_d - log_corn_d[_n-1])
-gen r_wheat_d = 100*(log_wheat_d - log_wheat_d[_n-1])
-gen r_soybean_d = 100*(log_soybean_d - log_soybean_d[_n-1])
-gen r_brent = 100*(log_brent - log_brent[_n-1])
-gen r_wti = 100*(log_wti - log_wti[_n-1])
+// Compute daily returns (% change) for each logged series.
+gen r_natgas_d   = 100*(log_natgas_d   - log_natgas_d[_n-1])
+gen r_corn_d     = 100*(log_corn_d     - log_corn_d[_n-1])
+gen r_wheat_d    = 100*(log_wheat_d    - log_wheat_d[_n-1])
+gen r_soybean_d  = 100*(log_soybean_d  - log_soybean_d[_n-1])
+gen r_brent      = 100*(log_brent      - log_brent[_n-1])
+gen r_wti        = 100*(log_wti        - log_wti[_n-1])
+// Drop the first observation (no prior day to compute returns).
 drop if _n==1
-
+// Install the estout package (for table export) if not already installed.
 ssc install estout, replace
+// Clear any previously stored estimation results.
 eststo clear
+// Change directory to where you want to save regression output.
 cd "C:\stata_output"
+// Run a robust regression of Brent returns on market returns and store it.
 reg r_brent r_sp, robust
 eststo r_brent
+// Loop over each asset, regress its returns on market returns, and store results.
 foreach a in wti natgas corn wheat soybean {
     reg r_`a' r_sp, robust
     eststo r_`a'
 }
+// Export all stored regression tables to an RTF file in one command.
 esttab r_brent r_wti r_natgas r_corn r_wheat r_soybean using market_regressions.rtf, replace se star(* 0.10 ** 0.05 *** 0.01) label b(3) se(3) title("Baseline Regressions: Asset Returns on Market Return") mtitles("Brent" "WTI" "Natural Gas" "Corn" "Wheat" "Soybean") coeflabels(r_sp "Market Return") keep(r_sp) compress nonumbers addnotes("Robust standard errors in parentheses." "Significance: * p<0.10; ** p<0.05; *** p<0.01")
-
+// Import the S&P 500 CSV, using the first row as variable names and clearing any existing data  
+import delimited "C:\Users\jakes\Downloads\sp500.csv", varnames(1) clear
+// Rename the raw date string to date_str  
+rename date date_str
+// Parse date_str (DMY) into a Stata date variable called date  
+gen date = date(date_str, "DMY")
+// Format date as MM/DD/YYYY for readability  
+format date %tdNN/DD/CCYY
+// Preview the first 15 observations of date_str and adjusted_close  
+list date_str adjusted_close in 1/15
+// Drop the original date_str now that date is set  
+drop date_str
+// Keep only date and adjusted_close in the dataset  
+keep date adjusted_close
+// Rename adjusted_close to sp_adjclose for clarity  
+rename adjusted_close sp_adjclose
+// Save the S&P 500 series to “sp_returns.dta”  
+save "sp_returns.dta", replace
+// Load the combined VIX & frequency dataset  
+use vix_all_frequencies.dta, clear
+// Ensure no leftover merge indicators  
+drop _merge
+// Merge in the full S&P 500 returns one-to-one on date  
+merge 1:1 date using sp_full.dta
+// Drop the merge indicator from this merge  
+drop _merge
+// Declare the merged data as a daily time series by date  
+tsset date, daily
+// Drop any days with missing Brent prices to balance the panel  
+drop if missing(brent)
+// Preview the first 15 observations of brent, soybean_d, gdp_d, and date  
+list brent soybean_d gdp_d date in 1/15
+// Sort by date for time-series calculations  
+sort date
+// Compute ln(sp_adjclose) as ln_sp500  
+gen ln_sp500 = log(sp_adjclose)
+// Compute the daily S&P 500 return r_sp = 100·Δln_sp500  
+gen r_sp = 100*(ln_sp500 - ln_sp500[_n-1])
+// Preview date, sp_adjclose, ln_sp500, and r_sp for the first 15 obs  
+list date sp_adjclose ln_sp500 r_sp in 1/15, clean noobs
+// Save the updated VIX dataset with market returns included  
+save vix_all_frequencies.dta, replace
+// Sort by date before logging commodities  
+sort date
+// Generate log of each interpolated commodity series  
+gen log_natgas_d   = ln(natgas_d)
+gen log_corn_d     = ln(corn_d)
+gen log_wheat_d    = ln(wheat_d)
+gen log_soybean_d  = ln(soybean_d)
+gen log_brent      = ln(brent)
+gen log_wti        = ln(wti)
+// Flag any non-positive values to catch log errors  
+gen byte bad_log = (natgas_d<=0 | corn_d<=0 | wheat_d<=0 | soybean_d<=0 | brent<=0 | wti<=0)
+// List dates with bad_log == 1  
+list date if bad_log
+// Preview the first 15 logged values of corn, soybean, and WTI  
+list log_corn_d log_soybean_d log_wti date in 1/15
+// Sort by date before computing daily returns  
+sort date
+// Compute daily % returns for each logged series  
+gen r_natgas_d   = 100*(log_natgas_d   - log_natgas_d[_n-1])
+gen r_corn_d     = 100*(log_corn_d     - log_corn_d[_n-1])
+gen r_wheat_d    = 100*(log_wheat_d    - log_wheat_d[_n-1])
+gen r_soybean_d  = 100*(log_soybean_d  - log_soybean_d[_n-1])
+gen r_brent      = 100*(log_brent      - log_brent[_n-1])
+gen r_wti        = 100*(log_wti        - log_wti[_n-1])
+// Drop the first observation since returns cannot be computed for it  
+drop if _n==1
+// Install estout for table exports (if not already installed)  
+ssc install estout, replace
+// Clear any previously stored estimation sets  
+eststo clear
+// Change directory to your Stata output folder  
+cd "C:\stata_output"
+// Regress Brent returns on market return with robust SEs and store results  
 reg r_brent c.r_sp##i.crisis10, robust
 eststo r_brent
+// Define the list of assets for looping  
 local assets natgas_d corn_d wheat_d soybean_d brent wti
+// Loop through each asset, regress its return on market × crisis interaction, and store  
 foreach a of local assets {
     reg r_`a' c.r_sp##i.crisis10, robust
     eststo `a'
 }
-esttab natgas_d corn_d wheat_d soybean_d brent wti using crisis_interaction_regressions.rtf, replace se star(* 0.10 ** 0.05 *** 0.01) label b(3) se(3) title("Interaction Regressions: Asset Returns × VIX Top-Decile Crisis") mtitles("NatGas" "Corn" "Wheat" "Soybean" "Brent" "WTI") coeflabels(1.r_sp "Market (Normal)" 1.crisis10 "Crisis" r_sp#1.crisis10 "Market × Crisis") compress nonumbers addnotes("Robust standard errors in parentheses." "Significance: * p<0.10; ** p<0.05; *** p<0.01")
-
-
+// Export all interaction regression tables in one RTF with custom titles & labels  
+esttab natgas_d corn_d wheat_d soybean_d brent wti using crisis_interaction_regressions.rtf, replace se star(* 0.10 ** 0.05 *** 0.01) label b(3) se(3) ///
+    title("Interaction Regressions: Asset Returns × VIX Top-Decile Crisis") ///
+    mtitles("NatGas" "Corn" "Wheat" "Soybean" "Brent" "WTI") ///
+    coeflabels(1.r_sp "Market (Normal)" 1.crisis10 "Crisis" r_sp#1.crisis10 "Market × Crisis") ///
+    compress nonumbers addnotes("Robust standard errors in parentheses." "Significance: * p<0.10; ** p<0.05; *** p<0.01")
+// Generate crisis indicators for GFC and COVID-19 windows  
 gen crisisGFC   = inrange(date, td(15sep2008), td(9mar2009))
 gen crisisCOVID = inrange(date, td(20feb2020), td(30apr2020))
+// Label the crisis indicator variables  
 label var crisisGFC   "GFC: 15Sep2008–09Mar2009"
 label var crisisCOVID "COVID-19: 20Feb2020–30Apr2020"
-
-di as txt "=== Brent vs S&P during GFC ==="
-reg  r_brent c.r_sp##i.crisisGFC, robust
+// Display header and run Brent × market × GFC interaction  
+di as txt "=== Brent vs S&P during GFC ==="  
+reg  r_brent c.r_sp##i.crisisGFC, robust  
 di as txt ""
-di as txt "=== Brent vs S&P during COVID-19 ==="
-reg  r_brent c.r_sp##i.crisisCOVID, robust
+// Display header and run Brent × market × COVID interaction  
+di as txt "=== Brent vs S&P during COVID-19 ==="  
+reg  r_brent c.r_sp##i.crisisCOVID, robust  
+di as txt ""
+// Loop assets and periods to run each interaction subsample regression  
 foreach a in brent wti natgas corn wheat soybean {
     foreach per in GFC COVID {
         di as txt "=== `a': `per' window ==="
@@ -151,77 +318,90 @@ foreach a in brent wti natgas corn wheat soybean {
         di as txt ""
     }
 }
+// Save the full dataset with all flags & interactions  
 save vix_all_frequencies.dta, replace
-
+// Install rangestat for rolling/window stats  
 ssc install rangestat, replace
-use vix_all_frequencies.dta, clear
+// Reload the full dataset and declare ts  
+use vix_all_frequencies.dta, clear  
 tsset date
-
+// Create tempfiles for each asset’s windowed stats  
 tempfile f_wti f_brent f_nat f_corn f_wheat f_soy
-
-//Calculating observation number for GFC and Covid19
-sort date
-gen obs_no = _n
-list date obs_no if date == td(15sep2008) | date == td(9mar2009), clean noobs
-list date obs_no if date == td(20feb2020) | date == td(30apr2020), clean noobs
-
-//Just GFC
-reg r_brent r_sp in 4754/4874, robust
-eststo r_brent
+// Compute observation numbers to identify GFC and COVID windows  
+sort date  
+gen obs_no = _n  
+list date obs_no if date==td(15sep2008)|date==td(9mar2009), clean noobs  
+list date obs_no if date==td(20feb2020)|date==td(30apr2020), clean noobs
+// Run GFC subsample regressions by obs_no 4754–4874 and store  
+reg r_brent r_sp in 4754/4874, robust  
+eststo r_brent  
 foreach a in wti natgas corn wheat soybean {
     reg r_`a' r_sp in 4754/4874, robust
     eststo r_`a'
 }
 esttab r_brent r_wti r_natgas r_corn r_wheat r_soybean using gfc_subsample_regressions.rtf, replace se star(* 0.10 ** 0.05 *** 0.01) label b(3) se(3) title("GFC Subsample Regressions: Asset Returns on Market Return (Sep 2008–Mar 2009)") mtitles("Brent" "WTI" "Natural Gas" "Corn" "Wheat" "Soybean") coeflabels(r_sp "Market Return") keep(r_sp) compress nonumbers addnotes("Sample: Obs 4754–4874 (GFC Window)", "Robust standard errors in parentheses.", "Significance: * p<0.10; ** p<0.05; *** p<0.01")
 
-// Just Covid
-reg r_brent r_sp in 7647/7695, robust
-eststo r_brent
+// Run COVID subsample regressions by obs_no 7647–7695 and store  
+reg r_brent r_sp in 7647/7695, robust  
+eststo r_brent  
 foreach a in wti natgas corn wheat soybean {
     reg r_`a' r_sp in 7647/7695, robust
     eststo r_`a'
 }
-esttab r_brent r_wti r_natgas r_corn r_wheat r_soybean using covid_subsample_regressions.rtf, replace se star(* 0.10 ** 0.05 *** 0.01) label b(3) se(3) title("COVID Subsample Regressions: Asset Returns on Market Return (Feb–Apr 2020)") mtitles("Brent" "WTI" "Natural Gas" "Corn" "Wheat" "Soybean") coeflabels(r_sp "Market Return") keep(r_sp) compress nonumbers addnotes("Sample: Obs 7647–7695 (COVID Window)", "Robust standard errors in parentheses.", "Significance: * p<0.10; ** p<0.05; *** p<0.01")
+esttab r_brent r_wti r_natgas r_corn r_wheat r_soybean using covid_subsample_regressions.rtf, replace se star(* 0.10 ** 0.05 *** 0.01) label b(3) se(3) title("COVID Subsample Regressions: Asset Returns on Market Return (Feb – Apr 2020)") mtitles("Brent" "WTI" "Natural Gas" "Corn" "Wheat" "Soybean") coeflabels(r_sp "Market Return") keep(r_sp) compress nonumbers addnotes("Sample: Obs 7647–7695 (COVID Window)", "Robust standard errors in parentheses.", "Significance: * p<0.10; ** p<0.05; *** p<0.01")
 
-// GFC + Covid
-gen combined_crisis_sample = 0
-replace combined_crisis_sample = 1 if inrange(_n, 4754, 4874)
-replace combined_crisis_sample = 1 if inrange(_n, 7647, 7695)
-reg r_brent r_sp if combined_crisis_sample == 1, robust
-eststo r_brent
+// Create combined crisis sample flag for GFC + COVID windows  
+gen combined_crisis_sample = inrange(_n,4754,4874) | inrange(_n,7647,7695)
+
+// Run combined crisis subsample regressions and store  
+reg r_brent r_sp if combined_crisis_sample==1, robust  
+eststo r_brent  
 foreach a in wti natgas corn wheat soybean {
-    reg r_`a' r_sp if combined_crisis_sample == 1, robust
+    reg r_`a' r_sp if combined_crisis_sample==1, robust
     eststo r_`a'
 }
-esttab r_brent r_wti r_natgas r_corn r_wheat r_soybean using crisis_sample_subsample_regressions.rtf, replace se star(* 0.10 ** 0.05 *** 0.01) label b(3) se(3) title("Crisis Subsample Regressions: Asset Returns on Market Return (GFC + COVID)") mtitles("Brent" "WTI" "Natural Gas" "Corn" "Wheat" "Soybean") coeflabels(r_sp "Market Return") keep(r_sp) compress nonumbers addnotes("Sample: Obs 4754–4874 (GFC) and 7647–7695 (COVID)", "Robust standard errors in parentheses.", "Significance: * p<0.10; ** p<0.05; *** p<0.01")
+esttab r_brent r_wti r_natgas r_corn r_wheat r_soybean using crisis_sample_subsample_regressions.rtf, replace se star(* 0.10 ** 0.05 *** 0.01) label b(3) se(3) title("Crisis Subsample Regressions: Asset Returns on Market Return (GFC + COVID)") mtitles("Brent" "WTI" "Natural Gas" "Corn" "Wheat" "Soybean") coeflabels(r_sp "Market Return") keep(r_sp) compress nonumbers addnotes("Sample: Obs 4754–4874 (GFC) & 7647–7695 (COVID)", "Robust standard errors in parentheses.", "Significance: * p<0.10; ** p<0.05; *** p<0.01")
 
-//Full table output
-
-// Baseline
+// Create output directory if it doesn’t exist and switch to it
 mkdir "C:\stata_output"
 cd "C:\stata_output"
+
+// Start a new Word document for baseline regressions
 putdocx clear
 putdocx begin
+
+// Insert bold heading for baseline regressions
 putdocx paragraph
 putdocx text ("Baseline Regressions: Asset Returns on Market Return"), bold
+
+// Loop over each asset return series: regress on market return, then insert table
 foreach a in r_natgas_d r_corn_d r_wheat_d r_soybean_d r_brent r_wti {
+    // Run robust regression
     regress `a' r_sp, robust
+    // Derive short name for table
     local shortname = substr("`a'",3,3)
+    // Insert italic caption
     putdocx paragraph
     putdocx text ("Regression of `a' on Market Return"), italic
+    // Insert and center regression table
     putdocx table tbl_`shortname' = etable
     putdocx table tbl_`shortname'(1,.), halign(center)
 }
 
+// Save the baseline regressions document
 putdocx save "baseline_regressions.docx", replace
 
-// 90th percentile crisis interaction
+// Prepare new document for 90th‐percentile crisis interactions
 mkdir "C:\stata_output"
 cd "C:\stata_output"
 putdocx clear
 putdocx begin
+
+// Insert bold heading for crisis interaction regressions
 putdocx paragraph
 putdocx text ("Crisis Regressions: Asset Returns on Market Return × VIX Top Decile"), bold
+
+// Define assets and loop: regress on market×crisis10, then insert table
 local assets natgas_d corn_d wheat_d soybean_d brent wti
 foreach a of local assets {
     regress r_`a' c.r_sp##i.crisis10, robust
@@ -231,111 +411,128 @@ foreach a of local assets {
     putdocx table tblc_`shortname' = etable
     putdocx table tblc_`shortname'(1,.), halign(center)
 }
+
+// Save the crisis interaction regressions document
 putdocx save "crisis10_regressions.docx", replace
 
+// Start new document for GFC subsample regressions
 cd "C:\stata_output"
 putdocx clear
 putdocx begin
 
+// Insert bold heading for GFC window
 putdocx paragraph
 putdocx text("GFC Subsample Regressions (15 Sep 2008 – 9 Mar 2009)"), bold
 
-// Reg & Table output for just GFC
-
-// Brent
+// Brent GFC regression & table
 reg r_brent r_sp in 4754/4874, robust
 putdocx paragraph
-putdocx text(`"r_brent regressed on r_sp during GFC"`), italic
+putdocx text("r_brent regressed on r_sp during GFC"), italic
 putdocx table t1 = etable
 putdocx table t1(1,.), halign(center)
 
-// wti
+// WTI GFC regression & table
 reg r_wti r_sp in 4754/4874, robust
 putdocx paragraph
-putdocx text(`"r_wti regressed on r_sp during GFC"`), italic
+putdocx text("r_wti regressed on r_sp during GFC"), italic
 putdocx table t2 = etable
 putdocx table t2(1,.), halign(center)
 
-// Natgas
+// NatGas GFC regression & table
 reg r_natgas r_sp in 4754/4874, robust
 putdocx paragraph
-putdocx text(`"r_natgas regressed on r_sp during GFC"`), italic
+putdocx text("r_natgas regressed on r_sp during GFC"), italic
 putdocx table t3 = etable
 putdocx table t3(1,.), halign(center)
 
-// Corn
+// Corn GFC regression & table
 reg r_corn r_sp in 4754/4874, robust
 putdocx paragraph
-putdocx text(`"r_corn regressed on r_sp during GFC"`), italic
+putdocx text("r_corn regressed on r_sp during GFC"), italic
 putdocx table t4 = etable
 putdocx table t4(1,.), halign(center)
 
-// Wheat
+// Wheat GFC regression & table
 reg r_wheat r_sp in 4754/4874, robust
 putdocx paragraph
-putdocx text(`"r_wheat regressed on r_sp during GFC"`), italic
+putdocx text("r_wheat regressed on r_sp during GFC"), italic
 putdocx table t5 = etable
 putdocx table t5(1,.), halign(center)
 
-//Soybean
+// Soybean GFC regression & table
 reg r_soybean r_sp in 4754/4874, robust
 putdocx paragraph
-putdocx text(`"r_soybean regressed on r_sp during GFC"`), italic
+putdocx text("r_soybean regressed on r_sp during GFC"), italic
 putdocx table t6 = etable
 putdocx table t6(1,.), halign(center)
+
+// Save the GFC subsample regressions document
 putdocx save "gfc_manual_regressions.docx", replace
 
 
-// Covid
+// Clear any existing Word document content
 putdocx clear
+// Begin a new Word document for COVID‐19 subsample regressions
 putdocx begin
-// Brent
+
+// Brent: run robust regression of r_brent on r_sp for observations 7647–7695 (COVID window)
 reg r_brent r_sp in 7647/7695, robust
+// Insert paragraph and italic caption for the Brent COVID regression
 putdocx paragraph
-putdocx text(`"r_brent regressed on r_sp during COVID-19"`), italic
+putdocx text("r_brent regressed on r_sp during COVID-19"), italic
+// Insert and center the Brent regression table (t1)
 putdocx table t1 = etable
 putdocx table t1(1,.), halign(center)
 
-// wti
+// WTI: run robust regression of r_wti on r_sp for observations 7647–7695
 reg r_wti r_sp in 7647/7695, robust
+// Insert paragraph and italic caption for the WTI COVID regression
 putdocx paragraph
-putdocx text(`"r_wti regressed on r_sp during COVID-19"`), italic
+putdocx text("r_wti regressed on r_sp during COVID-19"), italic
+// Insert and center the WTI regression table (t2)
 putdocx table t2 = etable
 putdocx table t2(1,.), halign(center)
 
-// Natgas
+// NatGas: run robust regression of r_natgas on r_sp for observations 7647–7695
 reg r_natgas r_sp in 7647/7695, robust
+// Insert paragraph and italic caption for the NatGas COVID regression
 putdocx paragraph
-putdocx text(`"r_natgas regressed on r_sp during COVID-19"`), italic
+putdocx text("r_natgas regressed on r_sp during COVID-19"), italic
+// Insert and center the NatGas regression table (t3)
 putdocx table t3 = etable
 putdocx table t3(1,.), halign(center)
 
-// Corn
+// Corn: run robust regression of r_corn on r_sp for observations 7647–7695
 reg r_corn r_sp in 7647/7695, robust
+// Insert paragraph and italic caption for the Corn COVID regression
 putdocx paragraph
-putdocx text(`"r_corn regressed on r_sp during COVID-19"`), italic
+putdocx text("r_corn regressed on r_sp during COVID-19"), italic
+// Insert and center the Corn regression table (t4)
 putdocx table t4 = etable
 putdocx table t4(1,.), halign(center)
 
-// Wheat
+// Wheat: run robust regression of r_wheat on r_sp for observations 7647–7695
 reg r_wheat r_sp in 7647/7695, robust
+// Insert paragraph and italic caption for the Wheat COVID regression
 putdocx paragraph
-putdocx text(`"r_wheat regressed on r_sp during COVID-19"`), italic
+putdocx text("r_wheat regressed on r_sp during COVID-19"), italic
+// Insert and center the Wheat regression table (t5)
 putdocx table t5 = etable
 putdocx table t5(1,.), halign(center)
 
-//Soybean
+// Soybean: run robust regression of r_soybean on r_sp for observations 7647–7695
 reg r_soybean r_sp in 7647/7695, robust
+// Insert paragraph and italic caption for the Soybean COVID regression
 putdocx paragraph
-putdocx text(`"r_soybean regressed on r_sp during COVID-19"`), italic
+putdocx text("r_soybean regressed on r_sp during COVID-19"), italic
+// Insert and center the Soybean regression table (t6)
 putdocx table t6 = etable
 putdocx table t6(1,.), halign(center)
+// Save the COVID‐19 subsample regression document, overwriting if necessary
 putdocx save "covid_manual_regressions.docx", replace
 
-
-//Rolling Betas
-
-//WTI
+// Rolling Betas: compute 60‐day rolling regression betas for each asset
+// WTI: preserve current data, run rolling regression of r_wti on r_sp over the past 60 days (including today), keep date and coefficient, rename, save, then restore
 preserve
 rangestat (reg) r_wti    r_sp, interval(date -59 0)
 keep date b_r_sp
@@ -343,7 +540,7 @@ rename b_r_sp beta60_r_wti
 save `f_wti', replace
 restore
 
-//Brent
+// Brent: same for r_brent
 preserve
 rangestat (reg) r_brent r_sp, interval(date -59 0)
 keep date b_r_sp
@@ -351,7 +548,7 @@ rename b_r_sp beta60_r_brent
 save `f_brent', replace
 restore
 
-//Natgas
+// NatGas: same for r_natgas
 preserve
 rangestat (reg) r_natgas r_sp, interval(date -59 0)
 keep date b_r_sp
@@ -359,7 +556,7 @@ rename b_r_sp beta60_r_natgas
 save `f_nat', replace
 restore
 
-//Corn
+// Corn: same for r_corn
 preserve
 rangestat (reg) r_corn  r_sp, interval(date -59 0)
 keep date b_r_sp
@@ -367,7 +564,7 @@ rename b_r_sp beta60_r_corn
 save `f_corn', replace
 restore
 
-//Wheat
+// Wheat: same for r_wheat
 preserve
 rangestat (reg) r_wheat r_sp, interval(date -59 0)
 keep date b_r_sp
@@ -375,7 +572,7 @@ rename b_r_sp beta60_r_wheat
 save `f_wheat', replace
 restore
 
-//Soybean
+// Soybean: same for r_soybean
 preserve
 rangestat (reg) r_soybean r_sp, interval(date -59 0)
 keep date b_r_sp
@@ -383,6 +580,7 @@ rename b_r_sp beta60_r_soybean
 save `f_soy', replace
 restore
 
+// Merge all rolling‐beta files one by one into the master dataset
 merge 1:1 date using `f_wti'
 drop _merge
 merge 1:1 date using `f_brent'
@@ -395,12 +593,13 @@ merge 1:1 date using `f_wheat'
 drop _merge
 merge 1:1 date using `f_soy'
 drop _merge
-
+// List a sample of the new beta variables from observations 60 to 70 to verify
 list date beta60_* in 60/70, clean noobs
 
-tempfile f_wti30 f_brent30 f_nat30 f_corn30 f_wheat30 f_soy30 
+// Declare tempfiles for 30‐day rolling beta outputs
+tempfile f_wti30 f_brent30 f_nat30 f_corn30 f_wheat30 f_soy30
 
-// WTI 30-day
+// Compute 30‐day rolling beta for WTI: preserve, run regression over past 30 days, keep, rename, save, then restore
 preserve
   rangestat (reg) r_wti    r_sp, interval(date -29 0)
   keep date b_r_sp
@@ -408,7 +607,7 @@ preserve
   save `f_wti30', replace
 restore
 
-// Brent 30-day
+// Compute 30‐day rolling beta for Brent
 preserve
   rangestat (reg) r_brent  r_sp, interval(date -29 0)
   keep date b_r_sp
@@ -416,7 +615,7 @@ preserve
   save `f_brent30', replace
 restore
 
-// NatGas 30-day 
+// Compute 30‐day rolling beta for NatGas
 preserve
   rangestat (reg) r_natgas r_sp, interval(date -29 0)
   keep date b_r_sp
@@ -424,7 +623,7 @@ preserve
   save `f_nat30', replace
 restore
 
-// Corn 30-day 
+// Compute 30‐day rolling beta for Corn
 preserve
   rangestat (reg) r_corn   r_sp, interval(date -29 0)
   keep date b_r_sp
@@ -432,7 +631,7 @@ preserve
   save `f_corn30', replace
 restore
 
-// Wheat 30-day 
+// Compute 30‐day rolling beta for Wheat
 preserve
   rangestat (reg) r_wheat  r_sp, interval(date -29 0)
   keep date b_r_sp
@@ -440,7 +639,7 @@ preserve
   save `f_wheat30', replace
 restore
 
-// Soybean 30-day
+// Compute 30‐day rolling beta for Soybean
 preserve
   rangestat (reg) r_soybean r_sp, interval(date -29 0)
   keep date b_r_sp
@@ -448,6 +647,7 @@ preserve
   save `f_soy30', replace
 restore
 
+// Merge the 30‐day beta files back into the master dataset one by one
 merge 1:1 date using `f_wti30'
 drop _merge
 merge 1:1 date using `f_brent30'
@@ -461,10 +661,10 @@ drop _merge
 merge 1:1 date using `f_soy30'
 drop _merge
 
+// Declare tempfiles for 120‐day rolling beta outputs
+tempfile f_wti120 f_brent120 f_nat120 f_corn120 f_wheat120 f_soy120
 
-tempfile f_wti120 f_brent120 f_nat120 f_corn120 f_wheat120 f_soy120 
-
-// WTI 120-day 
+// WTI 120‐day rolling beta: preserve, run 120‐day regression, keep date & coefficient, rename, save, restore
 preserve
   rangestat (reg) r_wti    r_sp, interval(date -119 0)
   keep date b_r_sp
@@ -472,7 +672,7 @@ preserve
   save `f_wti120', replace
 restore
 
-// Brent 120-day 
+// Brent 120‐day rolling beta
 preserve
   rangestat (reg) r_brent  r_sp, interval(date -119 0)
   keep date b_r_sp
@@ -480,7 +680,7 @@ preserve
   save `f_brent120', replace
 restore
 
-// NatGas 120-day 
+// NatGas 120‐day rolling beta
 preserve
   rangestat (reg) r_natgas r_sp, interval(date -119 0)
   keep date b_r_sp
@@ -488,7 +688,7 @@ preserve
   save `f_nat120', replace
 restore
 
-// Corn 120-day
+// Corn 120‐day rolling beta
 preserve
   rangestat (reg) r_corn   r_sp, interval(date -119 0)
   keep date b_r_sp
@@ -496,7 +696,7 @@ preserve
   save `f_corn120', replace
 restore
 
-// Wheat 120-day 
+// Wheat 120‐day rolling beta
 preserve
   rangestat (reg) r_wheat  r_sp, interval(date -119 0)
   keep date b_r_sp
@@ -504,7 +704,7 @@ preserve
   save `f_wheat120', replace
 restore
 
-// Soybean 120-day 
+// Soybean 120‐day rolling beta
 preserve
   rangestat (reg) r_soybean r_sp, interval(date -119 0)
   keep date b_r_sp
@@ -512,6 +712,7 @@ preserve
   save `f_soy120', replace
 restore
 
+// Merge each 120‐day beta file back into the master dataset
 merge 1:1 date using `f_wti120'
 drop _merge
 merge 1:1 date using `f_brent120'
@@ -525,59 +726,77 @@ drop _merge
 merge 1:1 date using `f_soy120'
 drop _merge
 
+// Save the updated dataset including 120‐day betas, replacing existing file
 save vix_all_frequencies.dta, replace
-
+// Declare date as the time‐series index
 tsset date
-
+// Define a local macro “assets” listing all asset identifiers
 local assets wti brent natgas corn wheat soybean sp
-
+// Set the graphics scheme to “journal” for a clean, publication style
 set scheme journal
+// Load the dataset into memory, clearing anything already there
 use vix_all_frequencies.dta, clear
+// Re‐declare date as the time‐series index
 tsset date
+// Re‐define “assets” (same list) for subsequent use
 local assets wti brent natgas corn wheat soybean sp
-local start30  = td(01feb1990)
-local start60  = td(01mar1990)
-local start120 = td(01may1990)
-local end      = td(31dec2024)
+// Define window start dates and sample end date
+local start30  = td(01feb1990)   // 1 Feb 1990
+local start60  = td(01mar1990)   // 1 Mar 1990
+local start120 = td(01may1990)   // 1 May 1990
+local end      = td(31dec2024)   // 31 Dec 2024
 
+// Loop over each asset to plot rolling betas
 foreach a in `assets' {
+    // Create a nicely formatted title: proper‐case, except “sp” → “S&P500”
     local Asset = proper("`a'")
     if "`a'" == "sp" local Asset = "S&P500"
+    // Plot 30/60/120-day rolling β on one line, add β=1 reference, set ranges, legend, titles, and formatting
     twoway line beta30_r_`a' date if date>=`start30', lcolor(red) lwidth(medium) || line beta60_r_`a' date if date>=`start60', lcolor(blue) lwidth(medium) || line beta120_r_`a' date if date>=`start120', lcolor(black) lwidth(medium) yline(1, lpattern(dash) lcolor(red) lwidth(thin)) yscale(range(-3 3)) legend(order(1 "30-day" 2 "60-day" 3 "120-day") cols(1) size(vsmall)) title("Rolling β: `Asset' (30/60/120-day)", size(small)) subtitle("Feb/Mar/May 1990–Dec 2024", size(vsmall) color(gs8)) xtitle("Date", size(vsmall)) ytitle("β", size(vsmall)) xlabel(, format(%tdCY) labsize(vsmall) angle(45) grid) ylabel(-3(1)3, labsize(vsmall) angle(horizontal) grid) graphregion(color(white)) bgcolor(white) name(rolling_`a', replace)
+    // Save the graph in Stata’s native format
     graph save rolling_beta30_60_120_`a'.gph, replace
+    // Export the graph as a 1,200-pixel-wide PNG
     graph export rolling_beta30_60_120_`a'.png, replace width(1200)
 }
+
 
 // natural gas + brent + wti 30
 twoway (line beta30_r_wti    date if date>=`start30', lcolor(red)   lwidth(medium)) (line beta30_r_brent date if date>=`start30', lcolor(blue)  lwidth(medium)) (line beta30_r_natgas date if date>=`start30', lcolor(black) lwidth(medium)), yline(1, lpattern(dash) lcolor(red) lwidth(thin)) yscale(range(-3 3)) legend(order(1 "WTI" 2 "Brent" 3 "NatGas") cols(1) size(vsmall)) title("30-Day Rolling Beta: WTI vs. Brent vs. NatGas", size(small)) subtitle("Feb 1990–Dec 2024", size(vsmall) color(gs8)) xtitle("Date", size(vsmall)) ytitle("Beta", size(vsmall)) xlabel(, format(%tdCY) labsize(vsmall) angle(45) grid) ylabel(-3(1)3, labsize(vsmall) angle(horizontal) grid) graphregion(color(white)) bgcolor(white) name(beta30_wti_brent_natgas, replace)
 graph save beta30_wti_brent_natgas.gph, replace
 
-// soybean, corn wheat 30
+//soybean, corn wheat 30
 twoway (line beta30_r_soybean date if date>=`start30', lcolor(red)   lwidth(medium)) (line beta30_r_wheat date if date>=`start30', lcolor(blue)  lwidth(medium)) (line beta30_r_corn    date if date>=`start30', lcolor(black) lwidth(medium)), yline(1, lpattern(dash) lcolor(red) lwidth(thin)) yscale(range(-3 3)) legend(order(1 "Soybean" 2 "Wheat" 3 "Corn") cols(1) size(vsmall)) title("30-Day Rolling Beta: Soybean, Wheat & Corn", size(small)) subtitle("Feb 1990–Dec 2024", size(vsmall) color(gs8)) xtitle("Date", size(vsmall)) ytitle("Beta", size(vsmall)) xlabel(, format(%tdCY) labsize(vsmall) angle(45) grid) ylabel(-3(1)3, labsize(vsmall) angle(horizontal) grid) graphregion(color(white)) bgcolor(white) name(beta30_soy_wheat_corn, replace)
 graph save beta30_soy_wheat_corn.gph, replace
 
-//60
+//natural gas + brent + wti 60
 twoway (line beta60_r_wti    date if date>=`start60', lcolor(red)   lwidth(medium)) (line beta60_r_brent date if date>=`start60', lcolor(blue)  lwidth(medium)) (line beta60_r_natgas  date if date>=`start60', lcolor(black) lwidth(medium)), yline(1, lpattern(dash) lcolor(red) lwidth(thin)) yscale(range(-3 3)) legend(order(1 "WTI" 2 "Brent" 3 "NatGas") cols(1) size(vsmall)) title("60-Day Rolling Beta: WTI vs. Brent vs. NatGas", size(small)) subtitle("Mar 1990–Dec 2024", size(vsmall) color(gs8)) xtitle("Date", size(vsmall)) ytitle("Beta", size(vsmall)) xlabel(, format(%tdCY) labsize(vsmall) angle(45) grid) ylabel(-3(1)3, labsize(vsmall)) graphregion(color(white)) bgcolor(white) name(beta60_wti_brent_natgas, replace)
 graph save beta60_wti_brent_natgas.gph, replace
 
+//soybean, corn wheat 60
 twoway (line beta60_r_soybean date if date>=`start60', lcolor(red)   lwidth(medium)) (line beta60_r_wheat   date if date>=`start60', lcolor(blue)  lwidth(medium)) (line beta60_r_corn    date if date>=`start60', lcolor(black) lwidth(medium)), yline(1, lpattern(dash) lcolor(red) lwidth(thin)) yscale(range(-3 3)) legend(order(1 "Soybean" 2 "Wheat" 3 "Corn") cols(1) size(vsmall)) title("60-Day Rolling Beta: Soybean, Wheat & Corn", size(small)) subtitle("Mar 1990–Dec 2024", size(vsmall) color(gs8)) xtitle("Date", size(vsmall)) ytitle("Beta", size(vsmall)) xlabel(, format(%tdCY) labsize(vsmall) angle(45) grid) ylabel(-3(1)3, labsize(vsmall)) graphregion(color(white)) bgcolor(white) name(beta60_soy_wheat_corn, replace)
 graph save beta60_soy_wheat_corn.gph, replace
 
-//120
+//natural gas + brent + wti 120
 twoway (line beta120_r_wti    date if date>=`start120', lcolor(red)   lwidth(medium)) (line beta120_r_brent date if date>=`start120', lcolor(blue)  lwidth(medium)) (line beta120_r_natgas  date if date>=`start120', lcolor(black) lwidth(medium)), yline(1, lpattern(dash) lcolor(red) lwidth(thin)) yscale(range(-3 3)) legend(order(1 "WTI" 2 "Brent" 3 "NatGas") cols(1) size(vsmall)) title("120-Day Rolling Beta: WTI vs. Brent vs. NatGas", size(small)) subtitle("May 1990–Dec 2024", size(vsmall) color(gs8)) xtitle("Date", size(vsmall)) ytitle("Beta", size(vsmall)) xlabel(, format(%tdCY) labsize(vsmall) angle(45) grid) ylabel(-3(1)3, labsize(vsmall)) graphregion(color(white)) bgcolor(white) name(beta120_wti_brent_natgas, replace)
 graph save beta120_wti_brent_natgas.gph, replace
 
+//soybean, corn wheat 120
 twoway (line beta120_r_soybean date if date>=`start120', lcolor(red)   lwidth(medium)) (line beta120_r_wheat   date if date>=`start120', lcolor(blue)  lwidth(medium)) (line beta120_r_corn    date if date>=`start120', lcolor(black) lwidth(medium)), yline(1, lpattern(dash) lcolor(red) lwidth(thin)) yscale(range(-3 3)) legend(order(1 "Soybean" 2 "Wheat" 3 "Corn") cols(1) size(vsmall)) title("120-Day Rolling Beta: Soybean, Wheat & Corn", size(small)) subtitle("May 1990–Dec 2024", size(vsmall) color(gs8)) xtitle("Date", size(vsmall)) ytitle("Beta", size(vsmall)) xlabel(, format(%tdCY) labsize(vsmall) angle(45) grid) ylabel(-3(1)3, labsize(vsmall)) graphregion(color(white)) bgcolor(white) name(beta120_soy_wheat_corn, replace)
 graph save beta120_soy_wheat_corn.gph, replace
 
-//Shaders applied
+// Create a byte‐type flag GFC = 1 for dates from 15 Sep 2008 through 9 Mar 2009
 gen byte GFC   = inrange(date, td(15sep2008), td(9mar2009))
+// Attach a descriptive label “Great Financial Crisis” to the GFC variable
 label var GFC  "Great Financial Crisis"
+// Create a byte‐type flag COVID = 1 for dates from 20 Feb 2020 through 30 Apr 2020
 gen byte COVID = inrange(date, td(20feb2020), td(30apr2020))
+// Attach a descriptive label “COVID-19 shock” to the COVID variable
 label var COVID "COVID-19 shock"
-
+// Define a local macro “suffix” listing the asset codes to loop over
 local suffix    wti brent natgas corn wheat soybean
+// Define a second local macro “pretty” with human‐readable names matching `suffix’ order
 local pretty    WTI Brent "Natural gas" Corn Wheat Soybean
+// Define a cutoff date macro for 1 Jan 2025 to restrict analyses/plots
 local cutoff    = td(1jan2025)
 
 // Loop for GFC and Covid
@@ -589,9 +808,7 @@ foreach c of local suffix {
     local ymax = r(max)
     tempvar shade
     gen double `shade' = (`ymax' - `ymin') if GFC==1 | COVID==1
-
     twoway (bar `shade' date if date<`cutoff', barwidth(1) base(`ymin') fcolor(gs12%30)) (line beta60_r_`c' date if date<`cutoff', lcolor(black) lwidth(medium)), scheme(s1color) title("`pname' 60-Day Rolling β", size(medium)) subtitle("Shaded: Great Financial Crisis & COVID-19", size(small)) xtitle("Date", size(small)) ytitle("β₆₀", size(small)) xlabel(, format(%tdCY) angle(45) labsize(vsmall)) ylabel(, grid labsize(vsmall)) yline(1, lpattern(dash) lcolor(red)) legend(off) graphregion(color(white)) plotregion(margin(5 5 5 5)) aspectratio(0.6) name(rolling60_`c', replace)
-
     local ++i
 }
 
@@ -605,19 +822,24 @@ foreach c of local suffix {
     local ymax = r(max)
     tempvar shade
     gen double `shade' = (`ymax'-`ymin') if crisis10==1
-
     twoway (bar `shade' date if date<`cutoff', barwidth(1) base(`ymin') fcolor(gs12%20)) (line beta60_r_`c' date if date<`cutoff', lcolor(black) lwidth(medium)), scheme(s1color) title("`pname' 60-Day Rolling β", size(medium)) subtitle("Shaded: VIX top decile", size(small)) xtitle("Date", size(small)) ytitle("β₆₀", size(small)) xlabel(, format(%tdCY) angle(45) labsize(vsmall)) ylabel(, grid labsize(vsmall)) yline(1, lpattern(dash) lcolor(red)) legend(off) graphregion(color(white)) plotregion(margin(5 5 5 5)) aspectratio(0.6) name(rolling60_vix_`c', replace)
-
     local ++i
 }
 
 graph combine rolling60_vix_wti rolling60_vix_brent rolling60_vix_natgas rolling60_vix_corn rolling60_vix_wheat rolling60_vix_soybean, cols(3) xcommon ycommon imargin(zero) title("60-Day Rolling β — VIX Top Decile") subtitle("Shaded: VIX ≥ 90th percentile") name(rolling60_vix_all, replace)
 
-/// GARCH
+/// Load the dataset “vix_all_frequencies.dta” into memory, replacing any data already present
 use vix_all_frequencies.dta, clear
+/// Define a local macro “assets” containing the list of return‐series variables to model with GARCH
 local assets r_wti r_brent r_natgas_d r_corn_d r_wheat_d r_soybean_d
-
+/// Create a temporary name for the handle that will refer to our postfile
 tempname garch_handle
+/// Open (or replace) a postfile called “garch_ic.dta” using the handle `garch_handle’
+/// The postfile will store:
+///   • asset  : a 20‐character string identifying each series
+///   • ll     : the log‐likelihood from the GARCH estimation
+///   • aic    : Akaike Information Criterion value
+///   • bic    : Bayesian Information Criterion value
 postfile `garch_handle' str20 asset double ll double aic double bic using garch_ic.dta, replace
 
 foreach a of local assets {
@@ -654,7 +876,7 @@ foreach a of local grains {
     drop rv_`a' rv_w rv_m
 } 
 
-//Graphing
+//Graphing GARCH volatility
 local vars r_corn_d r_wheat_d r_soybean_d
 local cols navy forest_red maroon
 
@@ -678,6 +900,7 @@ foreach x of local vars {
 tempname dwstats
 postfile `dwstats' str12 series double d using dwstats.dta, replace
 
+//loop over each asset class
 foreach x in r_sp r_brent r_wti r_natgas r_corn r_wheat r_soybean {
     quietly regress `x'
     quietly estat dwatson           
@@ -692,7 +915,7 @@ label var series “Return series”
 label var d      “Durbin–Watson d”
 list, noobs clean
 
-/// Hedge Ratio
+/// Computing hedge ratio
 
 ssc install rangestat, replace
 use vix_all_frequencies.dta, clear
@@ -874,5 +1097,3 @@ graph export hedge_ratio_soybean_t10.png, replace width(1800)
 twoway (line hedge_wheat_d60_t10 date, lcolor(maroon) lwidth(medium)), title("60-Day Hedge Ratio (±10): Wheat", size(medsmall)) subtitle("1990–2024", size(vsmall) color(gs8)) ytitle("Hedge Ratio", size(small)) xtitle("Date", size(small)) xlabel(, format(%tdCY) labsize(vsmall) angle(45) grid) ylabel(-10(5)10, labsize(vsmall) grid) yline(0, lcolor(gs12) lpattern(dash)) legend(off) graphregion(color(white) lcolor(black) lwidth(thin)) plotregion(margin(5 5 5 5)) bgcolor(white) scheme(s1color) name(hedge_ratio_wheat_t10, replace)
 graph save hedge_ratio_wheat_t10.gph, replace
 graph export hedge_ratio_wheat_t10.png, replace width(1800)
-
-// AR(1) regressions + Newey SE to protect us from serial correlation. 
